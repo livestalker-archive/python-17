@@ -28,9 +28,9 @@
 import itertools
 import collections
 
-helper_letters = dict(zip('23456789TJQKA', range(1, 15)))  # map ranks to int
+helper_letters = dict(zip('23456789TJQKA', range(2, 16)))  # map ranks to int
 helper_ranks = '14 13 12 11 10 9 8 7 6 5 4 3 2'
-helper_lowest_straight = '5 4 3 2 14'  # straight can start with A
+helper_lowest_straight = '14 5 4 3 2'  # straight can start with A
 
 
 def hand_rank(hand):
@@ -92,8 +92,7 @@ def _find_equal_n(n, ranks):
 def kind(n, ranks):
     """Возвращает первый ранг, который n раз встречается в данной руке.
     Возвращает None, если ничего не найдено"""
-    counts = collections.Counter(ranks)
-    equal_n = [k for k in sorted(counts.keys(), reverse=True) if counts[k] == n]
+    equal_n = _find_equal_n(n, ranks)
     if len(equal_n) > 0:
         return equal_n[0]
     else:
@@ -109,10 +108,11 @@ def two_pair(ranks):
 
 def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
-    five_cards_hands = itertools.combinations(hand, 5)
+    five_cards_hands = list(itertools.combinations(hand, 5))
     all_ranks = [hand_rank(el) for el in five_cards_hands]
-    return
-
+    m = max(all_ranks)#, key=lambda x: (x[0], x[1]))
+    ix = all_ranks.index(m)
+    return list(five_cards_hands[ix])
 
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
@@ -127,7 +127,6 @@ def test_best_hand():
             == ['8C', '8S', 'TC', 'TD', 'TH'])
     assert (sorted(best_hand("JD TC TH 7C 7D 7S 7H".split()))
             == ['7C', '7D', '7H', '7S', 'JD'])
-    return 'test_best_hand passes'
     print 'OK'
 
 
