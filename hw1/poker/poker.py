@@ -110,12 +110,14 @@ def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
     five_cards_hands = list(itertools.combinations(hand, 5))
     all_ranks = [hand_rank(el) for el in five_cards_hands]
-    m = max(all_ranks)#, key=lambda x: (x[0], x[1]))
+    m = max(all_ranks)  # , key=lambda x: (x[0], x[1]))
     ix = all_ranks.index(m)
     return list(five_cards_hands[ix])
 
+
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
+    # TODO wild hand
     return
 
 
