@@ -25,6 +25,12 @@
 # Вам наверняка пригодится itertoolsю
 # Можно свободно определять свои функции и т.п.
 # -----------------
+import itertools
+import collections
+
+helper_letters = dict(zip('23456789TJQKA', range(2, 16)))  # map ranks to int
+helper_ranks = '14 13 12 11 10 9 8 7 6 5 4 3 2'
+helper_lowest_straight = '14 5 4 3 2'  # straight can start with A
 
 
 def hand_rank(hand):
@@ -53,39 +59,65 @@ def hand_rank(hand):
 def card_ranks(hand):
     """Возвращает список рангов (его числовой эквивалент),
     отсортированный от большего к меньшему"""
-    return
+    ranks = sorted([helper_letters.get(el[0]) for el in hand], reverse=True)
+    return ranks
 
 
 def flush(hand):
     """Возвращает True, если все карты одной масти"""
-    return
+    suits = [el[1] for el in hand]
+    counts = collections.Counter(suits)
+    val = max(counts.values())
+    return val == 5
 
 
 def straight(ranks):
     """Возвращает True, если отсортированные ранги формируют последовательность 5ти,
-    где у 5ти карт ранги идут по порядку (стрит)"""
-    return
+    где у 5ти карт ранги идут по порядку (стрит)
+
+    Alexey notes: я бы в эту функцию передавал не ранги а hand, получилось бы красивее.
+    Т.е. helper_ranks бы поменялась на A 2 3 4 5 6 7 8 9 T J Q K A и так же проверял бы на вхождение
+    отсортировонной руки в строке через in.
+    """
+    inner_seq = ' '.join(str(el) for el in ranks)
+    return inner_seq in helper_ranks or inner_seq in helper_lowest_straight
+
+
+def _find_equal_n(n, ranks):
+    counts = collections.Counter(ranks)
+    equal_n = [k for k in sorted(counts.keys(), reverse=True) if counts[k] == n]
+    return equal_n
 
 
 def kind(n, ranks):
     """Возвращает первый ранг, который n раз встречается в данной руке.
     Возвращает None, если ничего не найдено"""
-    return
+    equal_n = _find_equal_n(n, ranks)
+    if len(equal_n) > 0:
+        return equal_n[0]
+    else:
+        return None
 
 
 def two_pair(ranks):
     """Если есть две пары, то возврщает два соответствующих ранга,
     иначе возвращает None"""
-    return
+    equal_n = _find_equal_n(2, ranks)
+    return None if len(equal_n) != 2 else equal_n
 
 
 def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
-    return
+    five_cards_hands = list(itertools.combinations(hand, 5))
+    all_ranks = [hand_rank(el) for el in five_cards_hands]
+    m = max(all_ranks)  # , key=lambda x: (x[0], x[1]))
+    ix = all_ranks.index(m)
+    return list(five_cards_hands[ix])
 
 
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
+    # TODO wild hand
     return
 
 
@@ -97,7 +129,6 @@ def test_best_hand():
             == ['8C', '8S', 'TC', 'TD', 'TH'])
     assert (sorted(best_hand("JD TC TH 7C 7D 7S 7H".split()))
             == ['7C', '7D', '7H', '7S', 'JD'])
-    return 'test_best_hand passes'
     print 'OK'
 
 
@@ -110,6 +141,7 @@ def test_best_wild_hand():
     assert (sorted(best_wild_hand("JD TC TH 7C 7D 7S 7H".split()))
             == ['7C', '7D', '7H', '7S', 'JD'])
     print 'OK'
+
 
 if __name__ == '__main__':
     test_best_hand()
