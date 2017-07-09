@@ -4,48 +4,59 @@
 from functools import update_wrapper
 
 
-def disable():
-    '''
+def disable(f):
+    """
     Disable a decorator by re-assigning the decorator's name
     to this function. For example, to turn off memoization:
 
     >>> memo = disable
 
-    '''
-    return
+    """
+    return f
 
 
 def decorator():
-    '''
+    """
     Decorate a decorator so that it inherits the docstrings
     and stuff from the function it's decorating.
-    '''
+    """
     return
 
 
-def countcalls():
-    '''Decorator that counts calls made to the function decorated.'''
-    return
+def countcalls(f):
+    """Decorator that counts calls made to the function decorated."""
+
+    def counted(*args):
+        counted.calls += 1
+        return f(*args)
+
+    counted.calls = 0
+    return counted
 
 
 def memo():
-    '''
+    """
     Memoize a function so that it caches all return values for
     faster future lookups.
-    '''
+    """
     return
 
 
-def n_ary():
-    '''
+def n_ary(f):
+    """
     Given binary function f(x, y), return an n_ary function such
     that f(x, y, z) = f(x, f(y,z)), etc. Also allow f(x) = x.
-    '''
-    return
+    """
+    def complex_func(*args):
+        if len(args) == 1:
+            return args[0]
+        else:
+            return f(args[0], complex_func(*args[1:]))
+    return complex_func
 
 
 def trace():
-    '''Trace calls made to function decorated.
+    """Trace calls made to function decorated.
 
     @trace("____")
     def fib(n):
@@ -63,11 +74,11 @@ def trace():
     ____ <-- fib(1) == 1
      <-- fib(3) == 3
 
-    '''
+    """
     return
 
 
-@memo
+# @memo
 @countcalls
 @n_ary
 def foo(a, b):
@@ -75,17 +86,17 @@ def foo(a, b):
 
 
 @countcalls
-@memo
+# @memo
 @n_ary
 def bar(a, b):
     return a * b
 
 
 @countcalls
-@trace("####")
-@memo
+# @trace("####")
+# @memo
 def fib(n):
-    return 1 if n <= 1 else fib(n-1) + fib(n-2)
+    return 1 if n <= 1 else fib(n - 1) + fib(n - 2)
 
 
 def main():
@@ -99,9 +110,9 @@ def main():
     print bar(4, 3, 2, 1)
     print "bar was called", bar.calls, "times"
 
-    print fib.__doc__
-    fib(3)
-    print fib.calls, 'calls made'
+#    print fib.__doc__
+#    fib(3)
+#    print fib.calls, 'calls made'
 
 
 if __name__ == '__main__':
