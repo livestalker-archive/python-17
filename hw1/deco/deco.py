@@ -23,8 +23,7 @@ def decorator(dec):
 
     def decorated(f):
         res = dec(f)
-        update_wrapper(res, f)
-        return res
+        return update_wrapper(res, f)
 
     return decorated
 
@@ -54,6 +53,7 @@ def memo(f):
         if res_key not in cache:
             res = f(*args)
             cache[res_key] = res
+            update_wrapper(memorized, f)
             return res
         else:
             return cache[res_key]
@@ -103,7 +103,7 @@ def trace():
 
 @memo
 @countcalls
-@n_ary
+# @n_ary
 def foo(a, b):
     """a+b"""
     return a + b
@@ -122,6 +122,27 @@ def bar(a, b):
 # @memo
 def fib(n):
     """fib"""
+    return 1 if n <= 1 else fib(n - 1) + fib(n - 2)
+
+
+@memo
+@countcalls
+@n_ary
+def foo(a, b):
+    return a + b
+
+
+@countcalls
+@memo
+@n_ary
+def bar(a, b):
+    return a * b
+
+
+@countcalls
+#@trace("####")
+@memo
+def fib(n):
     return 1 if n <= 1 else fib(n - 1) + fib(n - 2)
 
 
