@@ -99,7 +99,8 @@ def process_save_results(total_count, total_time, urls):
             "time_perc": time_perc,
             "time_sum": time_sum,
         })
-    gen_report(data)
+    data.sort(key=lambda x: x['time_perc'], reverse=True)
+    gen_report(data[:config['REPORT_SIZE']])
 
 
 def make_analyzer():
@@ -133,3 +134,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO сортировка по time_perc
