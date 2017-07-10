@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
 from unittest import TestCase
 import poker
 
 
 class TestPoker(TestCase):
+    """Некоторые тесты для самопроверки."""
+
     def test_flush(self):
         self.assertEqual(poker.flush("6C 7C 8C 9C TC".split()), True)
         self.assertEqual(poker.flush("6C 7S 8C 9C TC".split()), False)
@@ -21,5 +24,3 @@ class TestPoker(TestCase):
     def test_two_pair(self):
         self.assertEqual(poker.two_pair([14, 14, 10, 10, 2]), [14, 10])
         self.assertEqual(poker.two_pair([14, 13, 12, 10, 2]), None)
-
-        # TODO more tests
