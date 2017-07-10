@@ -22,4 +22,4 @@ class TestPoker(TestCase):
         self.assertEqual(poker.two_pair([14, 14, 10, 10, 2]), [14, 10])
         self.assertEqual(poker.two_pair([14, 13, 12, 10, 2]), None)
 
-    # TODO more tests
+        # TODO more tests

@@ -27,8 +27,20 @@
 # -----------------
 import itertools
 import collections
+import copy
 
-helper_letters = dict(zip('23456789TJQKA', range(2, 16)))  # map ranks to int
+TWO_JOKER = 3
+BLACK_JOKER = 2
+RED_JOKER = 1
+NO_JOKER = 0
+
+BLACK_JOKER_SYMBOL = '?B'
+RED_JOKER_SYMBOL = '?R'
+
+helper_symbol_ranks = '23456789TJQKA'
+helper_black_suits = 'CS'
+helper_red_suits = 'HD'
+helper_letters = dict(zip(helper_symbol_ranks, range(2, 16)))  # map ranks to int
 helper_ranks = '14 13 12 11 10 9 8 7 6 5 4 3 2'
 helper_lowest_straight = '14 5 4 3 2'  # straight can start with A
 
@@ -110,15 +122,68 @@ def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
     five_cards_hands = list(itertools.combinations(hand, 5))
     all_ranks = [hand_rank(el) for el in five_cards_hands]
-    m = max(all_ranks)  # , key=lambda x: (x[0], x[1]))
+    m = max(all_ranks)
     ix = all_ranks.index(m)
-    return list(five_cards_hands[ix])
+    return sorted(list(five_cards_hands[ix]))
 
 
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
-    # TODO wild hand
-    return
+    all_ranks = []
+    five_cards_hands = itertools.combinations(hand, 5)
+    for comb in five_cards_hands:
+        joker_type = _get_joker_type(comb)
+        if joker_type == BLACK_JOKER:
+            black_ix = comb.index(BLACK_JOKER_SYMBOL)
+            for replacement in _get_black_joker_replacement(comb):
+                new_hand = list(copy.copy(comb))
+                new_hand[black_ix] = replacement
+                rank = hand_rank(new_hand)
+                all_ranks.append((rank, new_hand))
+        elif joker_type == RED_JOKER_SYMBOL:
+            red_ix = comb.index(RED_JOKER_SYMBOL)
+            for replacement in _get_red_joker_replacement(comb):
+                new_hand = list(copy.copy(comb))
+                new_hand[red_ix] = replacement
+                rank = hand_rank(new_hand)
+                all_ranks.append((rank, new_hand))
+        elif joker_type == TWO_JOKER:
+            black_ix = comb.index(BLACK_JOKER_SYMBOL)
+            red_ix = comb.index(RED_JOKER_SYMBOL)
+            for replacement in _get_all_replacements(comb):
+                new_hand = list(copy.copy(comb))
+                new_hand[black_ix] = replacement[0]
+                new_hand[red_ix] = replacement[1]
+                rank = hand_rank(new_hand)
+                all_ranks.append((rank, new_hand))
+        else:
+            all_ranks.append((hand_rank(comb), comb))
+    m = max(all_ranks, key=lambda x: x[0])
+    result = sorted(m[1])
+    return result
+
+
+def _get_black_joker_replacement(hand):
+    return set(rank + suit for rank in helper_symbol_ranks for suit in helper_black_suits) - set(hand)
+
+
+def _get_red_joker_replacement(hand):
+    return set(rank + suit for rank in helper_symbol_ranks for suit in helper_red_suits) - set(hand)
+
+
+def _get_all_replacements(hand):
+    return ((black, red) for black in _get_black_joker_replacement(hand) for red in _get_red_joker_replacement(hand))
+
+
+def _get_joker_type(hand):
+    if BLACK_JOKER_SYMBOL in hand and RED_JOKER_SYMBOL in hand:
+        return TWO_JOKER
+    elif BLACK_JOKER_SYMBOL in hand:
+        return BLACK_JOKER
+    elif RED_JOKER_SYMBOL in hand:
+        return RED_JOKER
+    else:
+        return NO_JOKER
 
 
 def test_best_hand():
