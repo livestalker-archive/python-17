@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from functools import update_wrapper, wraps
+from functools import update_wrapper
 
 
 def disable(f):
@@ -77,8 +77,7 @@ def n_ary(f):
     return complex_func
 
 
-@decorator
-def trace():
+def trace(fill):
     """Trace calls made to function decorated.
 
     @trace("____")
@@ -98,19 +97,33 @@ def trace():
      <-- fib(3) == 3
 
     """
-    return
+
+    @decorator
+    def trace_decorator(f):
+        def traced(*args):
+            prefix = fill * traced.depth
+            fargs = ", ".join(str(a) for a in args)
+            print "{} --> {}({})".format(prefix, f.__name__, fargs)
+            traced.depth += 1
+            result = f(*args)
+            print "{} <-- {}({}) == {}".format(prefix, f.__name__, fargs, result)
+            traced.depth -= 1
+            return result
+        traced.depth = 0
+        return traced
+    return trace_decorator
 
 
 @memo
 @countcalls
-# @n_ary
+@n_ary
 def foo(a, b):
     """a+b"""
     return a + b
 
 
 @countcalls
-@memo
+#@memo
 @n_ary
 def bar(a, b):
     """a*b"""
@@ -118,31 +131,10 @@ def bar(a, b):
 
 
 @countcalls
-# @trace("####")
-# @memo
+@trace("####")
+@memo
 def fib(n):
     """fib"""
-    return 1 if n <= 1 else fib(n - 1) + fib(n - 2)
-
-
-@memo
-@countcalls
-@n_ary
-def foo(a, b):
-    return a + b
-
-
-@countcalls
-@memo
-@n_ary
-def bar(a, b):
-    return a * b
-
-
-@countcalls
-#@trace("####")
-@memo
-def fib(n):
     return 1 if n <= 1 else fib(n - 1) + fib(n - 2)
 
 
