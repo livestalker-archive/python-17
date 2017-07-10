@@ -29,10 +29,11 @@ import itertools
 import collections
 import copy
 
-TWO_JOKER = 3
-BLACK_JOKER = 2
-RED_JOKER = 1
-NO_JOKER = 0
+# Константы определяют сколько джокеров на руках
+TWO_JOKER = 3  # two jokers
+BLACK_JOKER = 2  # one black joker
+RED_JOKER = 1  # one red joker
+NO_JOKER = 0  # without jokers
 
 BLACK_JOKER_SYMBOL = '?B'
 RED_JOKER_SYMBOL = '?R'
@@ -96,6 +97,7 @@ def straight(ranks):
 
 
 def _find_equal_n(n, ranks):
+    """Поиск рангов, которые повторяются n раз."""
     counts = collections.Counter(ranks)
     equal_n = [k for k in sorted(counts.keys(), reverse=True) if counts[k] == n]
     return equal_n
@@ -128,7 +130,12 @@ def best_hand(hand):
 
 
 def best_wild_hand(hand):
-    """best_hand но с джокерами"""
+    """best_hand но с джокерами
+    Alexey notes: наверное это не самый лучший алгоритм поиска лучшей руки с джокерами.
+    Здесь я просто перебираю все возможные варианты и строю от них ранги.
+    Получилось затратно как по времени исполнения, так и, наверное, по памяти. Т.к. с рангами я дополнительно
+    храню и компбинацию.
+    """
     all_ranks = []
     five_cards_hands = itertools.combinations(hand, 5)
     for comb in five_cards_hands:
@@ -164,18 +171,22 @@ def best_wild_hand(hand):
 
 
 def _get_black_joker_replacement(hand):
+    """Получить всевозможные кобинации для черного джокера."""
     return set(rank + suit for rank in helper_symbol_ranks for suit in helper_black_suits) - set(hand)
 
 
 def _get_red_joker_replacement(hand):
+    """Получить всевозможные кобинации для красного джокера."""
     return set(rank + suit for rank in helper_symbol_ranks for suit in helper_red_suits) - set(hand)
 
 
 def _get_all_replacements(hand):
+    """Получить всевозможные кобинации для обоих джокеров."""
     return ((black, red) for black in _get_black_joker_replacement(hand) for red in _get_red_joker_replacement(hand))
 
 
 def _get_joker_type(hand):
+    """Определяем сколько джокеров в руке."""
     if BLACK_JOKER_SYMBOL in hand and RED_JOKER_SYMBOL in hand:
         return TWO_JOKER
     elif BLACK_JOKER_SYMBOL in hand:
