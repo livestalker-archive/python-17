@@ -136,7 +136,6 @@ def main():
     print bar(4, 3, 2, 1)
     print "bar was called", bar.calls, "times"
 
-
     print fib.__doc__
     fib(3)
     print fib.calls, 'calls made'
