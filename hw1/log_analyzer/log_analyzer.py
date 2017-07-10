@@ -46,21 +46,66 @@ def get_url(line):
 def get_request_time(line):
     m = RT_REGEXP.search(line)
     if m:
-        return m.group('rt')
+        # TODO error float
+        return float(m.group('rt'))
     else:
         return 0
 
 
-def analyzer():
-    pass
+def process_save_results(total_count, total_time, urls):
+    template = {
+        "count": 0,
+        "time_avg": 0,
+        "time_max": 0,
+        "time_sum": 0,
+        "url": "",
+        "time_med": 0,
+        "time_perc": 0,
+        "count_perc":0
+    }
+    for url in urls:
+        count = urls[url][0]
+        count_perc = float(count) / total_count
+        time_avg = urls[url][1] / count
+        time_max = urls[url][2]
+        time_med = None
+        time_perc = urls[url][1] / total_time
+        time_sum = urls[url][1]
+        pass
+
+
+def make_analyzer():
+    total_count = 0
+    total_time = 0
+    urls = {}
+    # url_count
+    # url_total_time
+    # url_max_time
+    try:
+        while True:
+            url, rt = yield
+            total_count += 1
+            total_time += rt
+            if url in urls:
+                urls[url][0] += 1
+                urls[url][1] += rt
+                if rt > urls[url][2]:
+                    urls[url][2] = rt
+            else:
+                urls[url] = [1, rt, rt]
+    except GeneratorExit as e:
+        process_save_results(total_count, total_time, urls)
 
 
 def main():
     last_log = get_last_log_file(config)
     open_func = get_open_func(last_log)
+    analizer = make_analyzer()
+    analizer.next()
     for line in open_func(last_log, mode='r'):
         line = line.strip()
-        print get_url(line) + ' ' + get_request_time(line)
+        analizer.send((get_url(line), get_request_time(line)))
+    analizer.close()
     pass
 
 
