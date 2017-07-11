@@ -6,6 +6,8 @@ import glob
 import gzip
 import re
 import json
+import argparse
+import sys
 
 # log_format ui_short '$remote_addr $remote_user $http_x_real_ip [$time_local] "$request" '
 #                     '$status $body_bytes_sent "$http_referer" '
@@ -21,16 +23,24 @@ config = {
     "REPORT_SIZE": 1000,
     "REPORT_DIR": "./reports",
     "LOG_DIR": "./log",
-    "TEMPLATE": "./report.html"
+    "TEMPLATE": "./report.html",
+    "FP_DIGITS": 4  # digits after the decimal point
 }
 
 
 def get_last_log_file():
+    """Find last log file."""
     list_of_logs = glob.glob(os.path.join(config['LOG_DIR'], '*'))
     return max(list_of_logs, key=os.path.getmtime)
 
 
+def is_file_exists(filename):
+    """Check if file exists."""
+    return os.path.isfile(filename)
+
+
 def get_open_func(filename):
+    """Get open function depending on file extension."""
     _, ext = os.path.splitext(filename)
     if ext == GZIP_EXT:
         return gzip.open
@@ -43,6 +53,7 @@ def get_report_name():
 
 
 def get_url(line):
+    """Parse url from the log line."""
     m = URL_REGEXP.search(line)
     if m:
         return m.group('url')
@@ -51,6 +62,7 @@ def get_url(line):
 
 
 def get_request_time(line):
+    """Parse request time from the log line."""
     m = RT_REGEXP.search(line)
     if m:
         # TODO error float
@@ -60,6 +72,7 @@ def get_request_time(line):
 
 
 def median(values):
+    """Compute median."""
     if len(values) % 2 == 0:
         return (values[(len(values) / 2) - 1] + values[len(values) / 2]) / 2.0
 
@@ -76,7 +89,6 @@ def gen_report(data):
                     report.write(line.replace(MARKER, json.dumps(data)))
                 else:
                     report.write(line)
-
 
 
 def process_save_results(total_count, total_time, urls):
@@ -103,32 +115,71 @@ def process_save_results(total_count, total_time, urls):
     gen_report(data[:config['REPORT_SIZE']])
 
 
-def make_analyzer():
+def parse_log(filename):
+    """Parse log file and fill dict url->list(request_time1, request_time2...)."""
+    urls = {}
     total_count = 0
     total_time = 0
-    urls = {}
-    try:
-        while True:
-            url, rt = yield
+    open_func = get_open_func(filename)
+    with open_func(filename, mode='r') as log:
+        for line in log:
+            line = line.strip()
+            url = get_url(line)
+            rt = get_request_time(line)
             total_count += 1
             total_time += rt
-            if url in urls:
-                urls[url].append(rt)
-            else:
+            if url not in urls:
                 urls[url] = [rt]
-    except GeneratorExit as e:
-        process_save_results(total_count, total_time, urls)
+            else:
+                urls[url].append(rt)
+    return total_count, total_time, urls
+
+
+def process_data(data):
+    ndigits = config['FP_DIGITS']
+    total_count, total_time, urls = data
+    result = []
+    for url in urls:
+        count = len(urls[url])
+        count_perc = round(float(count) / total_count, ndigits)
+        time_avg = round(sum(urls[url]) / count, ndigits)
+        time_max = round(max(urls[url]), ndigits)
+        time_med = round(median(sorted(urls[url])), ndigits)
+        time_sum = round(sum(urls[url]), ndigits)
+        time_perc = round(time_sum / total_time, ndigits)
+        result.append({
+            "url": url,
+            "count": count,
+            "count_perc": count_perc,
+            "time_avg": time_avg,
+            "time_max": time_max,
+            "time_med": time_med,
+            "time_perc": time_perc,
+            "time_sum": time_sum,
+        })
+    result.sort(key=lambda x: x['time_sum'], reverse=True)
+    return result
 
 
 def main():
-    last_log = get_last_log_file()
-    open_func = get_open_func(last_log)
-    analizer = make_analyzer()
-    analizer.next()
-    for line in open_func(last_log, mode='r'):
-        line = line.strip()
-        analizer.send((get_url(line), get_request_time(line)))
-    analizer.close()
+    parser = argparse.ArgumentParser(description='Parse web server logs.')
+    parser.add_argument('--log_path', dest='log_path', help='path to the log file')
+    parser.add_argument('--report_format', dest='report_format', default='html', choices=['html', 'json'],
+                        help='report format')
+    parser.add_argument('--report_size', dest='report_size', default=config['REPORT_SIZE'], help='report size in lines')
+    parsed_args = parser.parse_args()
+
+    last_log = parsed_args.log_path if parsed_args.log_path else get_last_log_file()
+    if parsed_args.report_size:
+        config['REPORT_SIZE'] = parsed_args.report_size
+
+    if not is_file_exists(last_log):
+        sys.stderr.write('File {0} does not exist.\n'.format(last_log))
+        sys.stderr.flush()
+        sys.exit(1)
+
+    data = parse_log(last_log)
+    result = process_data(data)
     pass
 
 
