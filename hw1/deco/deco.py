@@ -123,7 +123,7 @@ def foo(a, b):
 
 
 @countcalls
-#@memo
+@memo
 @n_ary
 def bar(a, b):
     """a*b"""
