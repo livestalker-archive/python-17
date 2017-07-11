@@ -198,7 +198,6 @@ def main():
     result = process_data(data)
     formatter = get_report_formatters()[parsed_args.report_format]
     formatter(report_filename, result)
-    pass
 
 
 if __name__ == "__main__":
