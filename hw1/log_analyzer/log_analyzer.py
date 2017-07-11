@@ -15,7 +15,7 @@ import sys
 #                     '$request_time';
 
 GZIP_EXT = '.gz'
-URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*)) HTTP')
+URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP')
 RT_REGEXP = re.compile(r' (?P<rt>[0-9.]+)$')
 MARKER = '$table_json'
 
@@ -24,7 +24,7 @@ config = {
     "REPORT_DIR": "./reports",
     "LOG_DIR": "./log",
     "TEMPLATE": "./report.html",
-    "FP_DIGITS": 4  # digits after the decimal point
+    "FP_DIGITS": 3  # digits after the decimal point
 }
 
 
@@ -91,30 +91,6 @@ def gen_report(data):
                     report.write(line)
 
 
-def process_save_results(total_count, total_time, urls):
-    data = []
-    for url in urls:
-        count = len(urls[url])
-        count_perc = float(count) / total_count
-        time_avg = sum(urls[url]) / count
-        time_max = max(urls[url])
-        time_med = median(sorted(urls[url]))
-        time_sum = sum(urls[url])
-        time_perc = time_sum / total_time
-        data.append({
-            "url": url,
-            "count": count,
-            "count_perc": count_perc,
-            "time_avg": time_avg,
-            "time_max": time_max,
-            "time_med": time_med,
-            "time_perc": time_perc,
-            "time_sum": time_sum,
-        })
-    data.sort(key=lambda x: x['time_perc'], reverse=True)
-    gen_report(data[:config['REPORT_SIZE']])
-
-
 def parse_log(filename):
     """Parse log file and fill dict url->list(request_time1, request_time2...)."""
     urls = {}
@@ -141,12 +117,12 @@ def process_data(data):
     result = []
     for url in urls:
         count = len(urls[url])
-        count_perc = round(float(count) / total_count, ndigits)
+        count_perc = round(100 * float(count) / total_count, ndigits)
         time_avg = round(sum(urls[url]) / count, ndigits)
         time_max = round(max(urls[url]), ndigits)
         time_med = round(median(sorted(urls[url])), ndigits)
         time_sum = round(sum(urls[url]), ndigits)
-        time_perc = round(time_sum / total_time, ndigits)
+        time_perc = round(100 * time_sum / total_time, ndigits)
         result.append({
             "url": url,
             "count": count,
@@ -159,6 +135,30 @@ def process_data(data):
         })
     result.sort(key=lambda x: x['time_sum'], reverse=True)
     return result
+
+
+def save_to_html(data):
+    """Save report in html format."""
+    report_name = get_report_name()
+    with open(config['TEMPLATE'], mode='r') as template:
+        with open(report_name, mode='w') as report:
+            for line in template:
+                if MARKER in line:
+                    report.write(line.replace(MARKER, json.dumps(data)))
+                else:
+                    report.write(line)
+
+
+def save_to_json(data):
+    pass
+
+
+def get_report_formatters():
+    """Get list of report formatters."""
+    return {
+        'json': save_to_json,
+        'html': save_to_html
+    }
 
 
 def main():
@@ -180,10 +180,10 @@ def main():
 
     data = parse_log(last_log)
     result = process_data(data)
+    formatter = get_report_formatters()[parsed_args.report_format]
+    formatter(result)
     pass
 
 
 if __name__ == "__main__":
     main()
-
-# TODO сортировка по time_perc
