@@ -83,10 +83,8 @@ def get_request_time(line):
     """Parse request time from the log line."""
     m = RT_REGEXP.search(line)
     if m:
-        # TODO error float
         return float(m.group('rt'))
-    else:
-        return 0
+    return 0
 
 
 def median(values):
@@ -198,7 +196,6 @@ def main():
     result = process_data(data)
     formatter = get_report_formatters()[parsed_args.report_format]
     formatter(report_filename, result)
-    pass
 
 
 if __name__ == "__main__":

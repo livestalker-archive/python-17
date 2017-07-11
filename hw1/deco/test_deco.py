@@ -19,13 +19,10 @@ class TestDeco(TestCase):
         counted(1, 2)
         self.assertEqual(counted.calls, 3)
 
-    #    def test_countcalls_and_n_ary(self):
-    #        mixed = deco.countcalls(deco.n_ary(foo))
-    #        self.assertEqual(mixed(1, 2, 3), 6)
-    #        self.assertEqual(mixed.calls, 1)
-    #        mixed = deco.n_ary(deco.countcalls(foo))
-    #        self.assertEqual(mixed(1, 2, 3), 6)
-    #        self.assertEqual(mixed.calls, 1)
+    def test_countcalls_and_n_ary(self):
+        mixed = deco.countcalls(deco.n_ary(foo))
+        self.assertEqual(mixed(1, 2, 3), 6)
+        self.assertEqual(mixed.calls, 1)
 
     def test_countcalls_and_memo(self):
         # кэш стоит перед счетчиком
