@@ -102,11 +102,11 @@ def trace(fill):
     def trace_decorator(f):
         def traced(*args):
             prefix = fill * traced.depth
-            fargs = ", ".join(str(a) for a in args)
-            print "{} --> {}({})".format(prefix, f.__name__, fargs)
+            arg_str = ", ".join(str(a) for a in args)
+            print "{} --> {}({})".format(prefix, f.__name__, arg_str)
             traced.depth += 1
             result = f(*args)
-            print "{} <-- {}({}) == {}".format(prefix, f.__name__, fargs, result)
+            print "{} <-- {}({}) == {}".format(prefix, f.__name__, arg_str, result)
             traced.depth -= 1
             return result
         traced.depth = 0
