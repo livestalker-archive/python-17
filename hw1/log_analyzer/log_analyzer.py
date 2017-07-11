@@ -53,6 +53,7 @@ def get_open_func(filename):
 
 
 def gen_report_name(log_filename, report_format):
+    """Generate report name."""
     m = LOG_DATE_REGEXP.search(log_filename)
     if m:
         report_filename = 'report-{0}.{1}.{2}.{3}'.format(m.group('year'),
@@ -118,6 +119,7 @@ def parse_log(filename):
 
 
 def process_data(data):
+    """Process data."""
     ndigits = config['FP_DIGITS']
     total_count, total_time, urls = data
     result = []
@@ -155,6 +157,7 @@ def save_to_html(filename, data):
 
 
 def save_to_json(filename, data):
+    """Save report in json format"""
     with open(filename, mode='w') as report:
         report.write(json.dumps(data))
 
