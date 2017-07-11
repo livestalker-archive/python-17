@@ -8,6 +8,7 @@ import re
 import json
 import argparse
 import sys
+from datetime import date
 
 # log_format ui_short '$remote_addr $remote_user $http_x_real_ip [$time_local] "$request" '
 #                     '$status $body_bytes_sent "$http_referer" '
@@ -15,8 +16,11 @@ import sys
 #                     '$request_time';
 
 GZIP_EXT = '.gz'
+HTML_EXT = '.html'
+JSON_EXT = '.json'
 URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP')
 RT_REGEXP = re.compile(r' (?P<rt>[0-9.]+)$')
+LOG_DATE_REGEXP = re.compile(r'(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})')
 MARKER = '$table_json'
 
 config = {
@@ -48,8 +52,21 @@ def get_open_func(filename):
         return open
 
 
-def get_report_name():
-    return os.path.join(config['REPORT_DIR'], 'report-2017.06.30.html')
+def gen_report_name(log_filename, report_format):
+    m = LOG_DATE_REGEXP.search(log_filename)
+    if m:
+        report_filename = 'report-{0}.{1}.{2}.{3}'.format(m.group('year'),
+                                                          m.group('month'),
+                                                          m.group('day'),
+                                                          report_format)
+    else:
+        # if can  not parse date from log filename, let's save results with current file name and prefix unmatched
+        current_date = date.today()
+        report_filename = 'unmatched-report-{0}.{1:02}.{2:02}.{3}'.format(current_date.year,
+                                                                          current_date.month,
+                                                                          current_date.day,
+                                                                          report_format)
+    return os.path.join(config['REPORT_DIR'], report_filename)
 
 
 def get_url(line):
@@ -78,17 +95,6 @@ def median(values):
 
     elif len(values) % 2 != 0:
         return values[int((len(values) / 2))]
-
-
-def gen_report(data):
-    report_name = get_report_name()
-    with open(config['TEMPLATE'], mode='r') as template:
-        with open(report_name, mode='w') as report:
-            for line in template:
-                if MARKER in line:
-                    report.write(line.replace(MARKER, json.dumps(data)))
-                else:
-                    report.write(line)
 
 
 def parse_log(filename):
@@ -137,11 +143,10 @@ def process_data(data):
     return result
 
 
-def save_to_html(data):
+def save_to_html(filename, data):
     """Save report in html format."""
-    report_name = get_report_name()
     with open(config['TEMPLATE'], mode='r') as template:
-        with open(report_name, mode='w') as report:
+        with open(filename, mode='w') as report:
             for line in template:
                 if MARKER in line:
                     report.write(line.replace(MARKER, json.dumps(data)))
@@ -149,8 +154,9 @@ def save_to_html(data):
                     report.write(line)
 
 
-def save_to_json(data):
-    pass
+def save_to_json(filename, data):
+    with open(filename, mode='w') as report:
+        report.write(json.dumps(data))
 
 
 def get_report_formatters():
@@ -162,6 +168,7 @@ def get_report_formatters():
 
 
 def main():
+    """Log file must be in format report-YYYYMMDD[.gz]"""
     parser = argparse.ArgumentParser(description='Parse web server logs.')
     parser.add_argument('--log_path', dest='log_path', help='path to the log file')
     parser.add_argument('--report_format', dest='report_format', default='html', choices=['html', 'json'],
@@ -178,10 +185,16 @@ def main():
         sys.stderr.flush()
         sys.exit(1)
 
+    report_filename = gen_report_name(last_log, parsed_args.report_format)
+    if is_file_exists(report_filename):
+        sys.stderr.write('Report {0} already exist.\n'.format(report_filename))
+        sys.stderr.flush()
+        sys.exit(1)
+
     data = parse_log(last_log)
     result = process_data(data)
     formatter = get_report_formatters()[parsed_args.report_format]
-    formatter(result)
+    formatter(report_filename, result)
     pass
 
 
