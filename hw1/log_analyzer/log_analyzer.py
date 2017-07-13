@@ -15,9 +15,6 @@ from datetime import date
 #                     '"$http_user_agent" "$http_x_forwarded_for" "$http_X_REQUEST_ID" "$http_X_RB_USER" '
 #                     '$request_time';
 
-GZIP_EXT = '.gz'
-HTML_EXT = '.html'
-JSON_EXT = '.json'
 URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP')
 RT_REGEXP = re.compile(r' (?P<rt>[0-9.]+)$')
 LOG_DATE_REGEXP = re.compile(r'(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})')
@@ -46,7 +43,7 @@ def is_file_exists(filename):
 def get_open_func(filename):
     """Get open function depending on file extension."""
     _, ext = os.path.splitext(filename)
-    if ext == GZIP_EXT:
+    if ext == '.gz':
         return gzip.open
     else:
         return open
