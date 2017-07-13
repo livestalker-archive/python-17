@@ -38,12 +38,12 @@ NO_JOKER = 0  # without jokers
 BLACK_JOKER_SYMBOL = '?B'
 RED_JOKER_SYMBOL = '?R'
 
-helper_symbol_ranks = '23456789TJQKA'
-helper_black_suits = 'CS'
-helper_red_suits = 'HD'
-helper_letters = dict(zip(helper_symbol_ranks, range(2, 16)))  # map ranks to int
-helper_ranks = '14 13 12 11 10 9 8 7 6 5 4 3 2'
-helper_lowest_straight = '14 5 4 3 2'  # straight can start with A
+SYMBOL_RANKS = '23456789TJQKA'
+BLACK_SUITS = 'CS'
+RED_SUITS = 'HD'
+LETTERS = dict(zip(SYMBOL_RANKS, range(2, 16)))  # map ranks to int
+RANKS = '14 13 12 11 10 9 8 7 6 5 4 3 2'
+LOWEST_STRAIGHT = '14 5 4 3 2'  # straight can start with A
 
 
 def hand_rank(hand):
@@ -72,7 +72,7 @@ def hand_rank(hand):
 def card_ranks(hand):
     """Возвращает список рангов (его числовой эквивалент),
     отсортированный от большего к меньшему"""
-    ranks = sorted([helper_letters.get(el[0]) for el in hand], reverse=True)
+    ranks = sorted([LETTERS.get(el[0]) for el in hand], reverse=True)
     return ranks
 
 
@@ -93,7 +93,7 @@ def straight(ranks):
     отсортировонной руки в строке через in.
     """
     inner_seq = ' '.join(str(el) for el in ranks)
-    return inner_seq in helper_ranks or inner_seq in helper_lowest_straight
+    return inner_seq in RANKS or inner_seq in LOWEST_STRAIGHT
 
 
 def _find_equal_n(n, ranks):
@@ -172,12 +172,12 @@ def best_wild_hand(hand):
 
 def _get_black_joker_replacement(hand):
     """Получить всевозможные кобинации для черного джокера."""
-    return set(rank + suit for rank in helper_symbol_ranks for suit in helper_black_suits) - set(hand)
+    return set(rank + suit for rank in SYMBOL_RANKS for suit in BLACK_SUITS) - set(hand)
 
 
 def _get_red_joker_replacement(hand):
     """Получить всевозможные кобинации для красного джокера."""
-    return set(rank + suit for rank in helper_symbol_ranks for suit in helper_red_suits) - set(hand)
+    return set(rank + suit for rank in SYMBOL_RANKS for suit in RED_SUITS) - set(hand)
 
 
 def _get_all_replacements(hand):
