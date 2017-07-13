@@ -78,10 +78,8 @@ def card_ranks(hand):
 
 def flush(hand):
     """Возвращает True, если все карты одной масти"""
-    suits = [el[1] for el in hand]
-    counts = collections.Counter(suits)
-    val = max(counts.values())
-    return val == 5
+    suit = set(el[1] for el in hand)
+    return len(suit) == 1
 
 
 def straight(ranks):
