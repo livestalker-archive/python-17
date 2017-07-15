@@ -17,7 +17,7 @@ TODO
 ```bash
 ./prepare_env.sh # подготавливаем среду
 cd cpython
-git diff ../until/until.patch # патчим код
+git apply ../until/until.patch # патчим код
 cd ..
 ./run_cont.sh # запускаем контейнер
 ```
