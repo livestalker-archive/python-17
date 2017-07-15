@@ -1,7 +1,8 @@
 FROM centos
 
-WORKDIR /opt
+WORKDIR /opt/cpython
 
+RUN mkdir -p /opt/cpython
 RUN yum clean all
 RUN yum install -y\
     git\
