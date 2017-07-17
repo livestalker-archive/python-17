@@ -15,12 +15,8 @@ from datetime import date
 #                     '"$http_user_agent" "$http_x_forwarded_for" "$http_X_REQUEST_ID" "$http_X_RB_USER" '
 #                     '$request_time';
 
-GZIP_EXT = '.gz'
-HTML_EXT = '.html'
-JSON_EXT = '.json'
-URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP')
-RT_REGEXP = re.compile(r' (?P<rt>[0-9.]+)$')
-LOG_DATE_REGEXP = re.compile(r'(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})')
+URL_RT_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP.* (?P<rt>[0-9.]+)$')
+LOG_DATE_REGEXP = re.compile(r'(?P<full_date>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2}))')
 MARKER = '$table_json'
 
 config = {
@@ -34,8 +30,17 @@ config = {
 
 def get_last_log_file():
     """Find last log file."""
-    list_of_logs = glob.glob(os.path.join(config['LOG_DIR'], '*'))
-    return max(list_of_logs, key=os.path.getmtime)
+    list_of_files = glob.glob(os.path.join(config['LOG_DIR'], '*'))
+    list_of_logs_filtered = (el for el in list_of_files if LOG_DATE_REGEXP.search(el))
+    # create generator with elements (full_date_string, log_filename)
+    list_of_logs = ((LOG_DATE_REGEXP.search(el).group('full_date'), el)
+                    for el in list_of_logs_filtered)
+    try:
+        last = max(list_of_logs, key=lambda x: x[0])
+        return last[1]
+    except ValueError:
+        # empty sequence
+        return None
 
 
 def is_file_exists(filename):
@@ -46,7 +51,7 @@ def is_file_exists(filename):
 def get_open_func(filename):
     """Get open function depending on file extension."""
     _, ext = os.path.splitext(filename)
-    if ext == GZIP_EXT:
+    if ext == '.gz':
         return gzip.open
     else:
         return open
@@ -60,31 +65,16 @@ def gen_report_name(log_filename, report_format):
                                                           m.group('month'),
                                                           m.group('day'),
                                                           report_format)
-    else:
-        # if can  not parse date from log filename, let's save results with current file name and prefix unmatched
-        current_date = date.today()
-        report_filename = 'unmatched-report-{0}.{1:02}.{2:02}.{3}'.format(current_date.year,
-                                                                          current_date.month,
-                                                                          current_date.day,
-                                                                          report_format)
-    return os.path.join(config['REPORT_DIR'], report_filename)
-
-
-def get_url(line):
-    """Parse url from the log line."""
-    m = URL_REGEXP.search(line)
-    if m:
-        return m.group('url')
+        return os.path.join(config['REPORT_DIR'], report_filename)
     else:
         return None
 
 
-def get_request_time(line):
-    """Parse request time from the log line."""
-    m = RT_REGEXP.search(line)
+def get_url_rt(line):
+    m = URL_RT_REGEXP.search(line)
     if m:
-        return float(m.group('rt'))
-    return 0
+        return m.group('url'), float(m.group('rt'))
+    return None, 0
 
 
 def median(values):
@@ -105,8 +95,7 @@ def parse_log(filename):
     with open_func(filename, mode='r') as log:
         for line in log:
             line = line.strip()
-            url = get_url(line)
-            rt = get_request_time(line)
+            url, rt = get_url_rt(line)
             total_count += 1
             total_time += rt
             if url not in urls:
@@ -168,7 +157,13 @@ def get_report_formatters():
     }
 
 
-def main():
+def main(log, report, formatter):
+    data = parse_log(log)
+    result = process_data(data)
+    formatter(report, result)
+
+
+if __name__ == "__main__":
     """Log file must be in format report-YYYYMMDD[.gz]"""
     parser = argparse.ArgumentParser(description='Parse web server logs.')
     parser.add_argument('--log_path', dest='log_path', help='path to the log file')
@@ -177,26 +172,35 @@ def main():
     parser.add_argument('--report_size', dest='report_size', default=config['REPORT_SIZE'], help='report size in lines')
     parsed_args = parser.parse_args()
 
-    last_log = parsed_args.log_path if parsed_args.log_path else get_last_log_file()
+    formatter_func = get_report_formatters()[parsed_args.report_format]
     if parsed_args.report_size:
         config['REPORT_SIZE'] = parsed_args.report_size
+    last_log = parsed_args.log_path if parsed_args.log_path else get_last_log_file()
 
+    # if get_last_log_file return None
+    if not last_log:
+        sys.stderr.write('Can not find last log.\n')
+        sys.stderr.flush()
+        sys.exit(1)
+
+    # if log_file set in args and file does not exists
     if not is_file_exists(last_log):
         sys.stderr.write('File {0} does not exist.\n'.format(last_log))
         sys.stderr.flush()
         sys.exit(1)
 
     report_filename = gen_report_name(last_log, parsed_args.report_format)
+
+    # if we can not parse date from log filename
+    if not report_filename:
+        sys.stderr.write('Can not parse date from {0} filename.\n'.format(last_log))
+        sys.stderr.flush()
+        sys.exit(1)
+
+    # if report with specific extension exists
     if is_file_exists(report_filename):
         sys.stderr.write('Report {0} already exist.\n'.format(report_filename))
         sys.stderr.flush()
         sys.exit(1)
 
-    data = parse_log(last_log)
-    result = process_data(data)
-    formatter = get_report_formatters()[parsed_args.report_format]
-    formatter(report_filename, result)
-
-
-if __name__ == "__main__":
-    main()
+    main(last_log, report_filename, formatter_func)
