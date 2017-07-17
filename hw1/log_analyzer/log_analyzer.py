@@ -17,7 +17,7 @@ from datetime import date
 
 URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP')
 RT_REGEXP = re.compile(r' (?P<rt>[0-9.]+)$')
-LOG_DATE_REGEXP = re.compile(r'(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})')
+LOG_DATE_REGEXP = re.compile(r'(?P<full_date>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2}))')
 MARKER = '$table_json'
 
 config = {
@@ -31,8 +31,17 @@ config = {
 
 def get_last_log_file():
     """Find last log file."""
-    list_of_logs = glob.glob(os.path.join(config['LOG_DIR'], '*'))
-    return max(list_of_logs, key=os.path.getmtime)
+    list_of_files = glob.glob(os.path.join(config['LOG_DIR'], '*'))
+    list_of_logs_filtered = (el for el in list_of_files if LOG_DATE_REGEXP.search(el))
+    # create generator with elements (full_date_string, log_filename)
+    list_of_logs = ((LOG_DATE_REGEXP.search(el).group('full_date'), el)
+                    for el in list_of_logs_filtered)
+    try:
+        last = max(list_of_logs, key=lambda x: x[0])
+        return last[1]
+    except ValueError:
+        # empty sequence
+        return None
 
 
 def is_file_exists(filename):
