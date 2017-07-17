@@ -57,14 +57,9 @@ def gen_report_name(log_filename, report_format):
                                                           m.group('month'),
                                                           m.group('day'),
                                                           report_format)
+        return os.path.join(config['REPORT_DIR'], report_filename)
     else:
-        # if can  not parse date from log filename, let's save results with current file name and prefix unmatched
-        current_date = date.today()
-        report_filename = 'unmatched-report-{0}.{1:02}.{2:02}.{3}'.format(current_date.year,
-                                                                          current_date.month,
-                                                                          current_date.day,
-                                                                          report_format)
-    return os.path.join(config['REPORT_DIR'], report_filename)
+        return None
 
 
 def get_url(line):
@@ -198,6 +193,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     report_filename = gen_report_name(last_log, parsed_args.report_format)
+
+    # if we can not parse date from log filename
+    if not report_filename:
+        sys.stderr.write('Can not parse date from {0} filename.\n'.format(last_log))
+        sys.stderr.flush()
+        sys.exit(1)
 
     # if report with specific extension exists
     if is_file_exists(report_filename):
