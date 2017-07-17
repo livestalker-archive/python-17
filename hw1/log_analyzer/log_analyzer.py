@@ -15,8 +15,7 @@ from datetime import date
 #                     '"$http_user_agent" "$http_x_forwarded_for" "$http_X_REQUEST_ID" "$http_X_RB_USER" '
 #                     '$request_time';
 
-URL_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP')
-RT_REGEXP = re.compile(r' (?P<rt>[0-9.]+)$')
+URL_RT_REGEXP = re.compile(r'\"\w+ (?P<url>(.*?)) HTTP.* (?P<rt>[0-9.]+)$')
 LOG_DATE_REGEXP = re.compile(r'(?P<full_date>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2}))')
 MARKER = '$table_json'
 
@@ -71,21 +70,11 @@ def gen_report_name(log_filename, report_format):
         return None
 
 
-def get_url(line):
-    """Parse url from the log line."""
-    m = URL_REGEXP.search(line)
+def get_url_rt(line):
+    m = URL_RT_REGEXP.search(line)
     if m:
-        return m.group('url')
-    else:
-        return None
-
-
-def get_request_time(line):
-    """Parse request time from the log line."""
-    m = RT_REGEXP.search(line)
-    if m:
-        return float(m.group('rt'))
-    return 0
+        return m.group('url'), float(m.group('rt'))
+    return None, 0
 
 
 def median(values):
@@ -106,8 +95,7 @@ def parse_log(filename):
     with open_func(filename, mode='r') as log:
         for line in log:
             line = line.strip()
-            url = get_url(line)
-            rt = get_request_time(line)
+            url, rt = get_url_rt(line)
             total_count += 1
             total_time += rt
             if url not in urls:
