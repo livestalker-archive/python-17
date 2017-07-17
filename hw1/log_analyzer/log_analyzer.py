@@ -165,7 +165,13 @@ def get_report_formatters():
     }
 
 
-def main():
+def main(log, report, formatter):
+    data = parse_log(log)
+    result = process_data(data)
+    formatter(report, result)
+
+
+if __name__ == "__main__":
     """Log file must be in format report-YYYYMMDD[.gz]"""
     parser = argparse.ArgumentParser(description='Parse web server logs.')
     parser.add_argument('--log_path', dest='log_path', help='path to the log file')
@@ -174,26 +180,29 @@ def main():
     parser.add_argument('--report_size', dest='report_size', default=config['REPORT_SIZE'], help='report size in lines')
     parsed_args = parser.parse_args()
 
-    last_log = parsed_args.log_path if parsed_args.log_path else get_last_log_file()
+    formatter_func = get_report_formatters()[parsed_args.report_format]
     if parsed_args.report_size:
         config['REPORT_SIZE'] = parsed_args.report_size
+    last_log = parsed_args.log_path if parsed_args.log_path else get_last_log_file()
 
+    # if get_last_log_file return None
+    if not last_log:
+        sys.stderr.write('Can not find last log.\n')
+        sys.stderr.flush()
+        sys.exit(1)
+
+    # if log_file set in args and file does not exists
     if not is_file_exists(last_log):
         sys.stderr.write('File {0} does not exist.\n'.format(last_log))
         sys.stderr.flush()
         sys.exit(1)
 
     report_filename = gen_report_name(last_log, parsed_args.report_format)
+
+    # if report with specific extension exists
     if is_file_exists(report_filename):
         sys.stderr.write('Report {0} already exist.\n'.format(report_filename))
         sys.stderr.flush()
         sys.exit(1)
 
-    data = parse_log(last_log)
-    result = process_data(data)
-    formatter = get_report_formatters()[parsed_args.report_format]
-    formatter(report_filename, result)
-
-
-if __name__ == "__main__":
-    main()
+    main(last_log, report_filename, formatter_func)
