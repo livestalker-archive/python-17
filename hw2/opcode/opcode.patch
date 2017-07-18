@@ -1,0 +1,90 @@
+diff --git a/Include/opcode.h b/Include/opcode.h
+index 9ed5487..b9557ff 100644
+--- a/Include/opcode.h
++++ b/Include/opcode.h
+@@ -159,6 +159,10 @@ extern "C" {
+ #define SET_ADD         146
+ #define MAP_ADD         147
+ 
++/* Define our new OpCode for Outus HW2 LOAD_FC (FAST-CONST)
++   I select 160 constant if opcodes after 147 will be busy in new versions of python.
++*/
++#define LOAD_FC 160
+ 
+ enum cmp_op {PyCmp_LT=Py_LT, PyCmp_LE=Py_LE, PyCmp_EQ=Py_EQ, PyCmp_NE=Py_NE, PyCmp_GT=Py_GT, PyCmp_GE=Py_GE,
+ 	     PyCmp_IN, PyCmp_NOT_IN, PyCmp_IS, PyCmp_IS_NOT, PyCmp_EXC_MATCH, PyCmp_BAD};
+diff --git a/Lib/opcode.py b/Lib/opcode.py
+index e403365..8c78d9f 100644
+--- a/Lib/opcode.py
++++ b/Lib/opcode.py
+@@ -189,4 +189,7 @@ EXTENDED_ARG = 145
+ def_op('SET_ADD', 146)
+ def_op('MAP_ADD', 147)
+ 
++# if we want pretty output when call dis
++def_op('LOAD_FC', 160)
++
+ del def_op, name_op, jrel_op, jabs_op
+diff --git a/Python/ceval.c b/Python/ceval.c
+index 4e4adc2..3147bf9 100644
+--- a/Python/ceval.c
++++ b/Python/ceval.c
+@@ -1209,7 +1209,23 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
+         {
+             FAST_DISPATCH();
+         }
+-
++        /* New Target LOAD_FC */
++        TARGET(LOAD_FC)
++        {
++            x = GETLOCAL(0);
++            if (x != NULL) {
++                Py_INCREF(x);
++                PUSH(x);
++                x = GETITEM(consts, oparg);
++                Py_INCREF(x);
++                PUSH(x);
++                FAST_DISPATCH();
++            }
++            format_exc_check_arg(PyExc_UnboundLocalError,
++                UNBOUNDLOCAL_ERROR_MSG,
++                PyTuple_GetItem(co->co_varnames, oparg));
++            break;
++        }
+         TARGET(LOAD_FAST)
+         {
+             x = GETLOCAL(oparg);
+diff --git a/Python/opcode_targets.h b/Python/opcode_targets.h
+index 95eb127..e055699 100644
+--- a/Python/opcode_targets.h
++++ b/Python/opcode_targets.h
+@@ -159,7 +159,7 @@ static void *opcode_targets[256] = {
+     &&_unknown_opcode,
+     &&_unknown_opcode,
+     &&_unknown_opcode,
+-    &&_unknown_opcode,
++    &&TARGET_LOAD_FC, /* 160 opcode */
+     &&_unknown_opcode,
+     &&_unknown_opcode,
+     &&_unknown_opcode,
+diff --git a/Python/peephole.c b/Python/peephole.c
+index 11f6f88..e49c100 100644
+--- a/Python/peephole.c
++++ b/Python/peephole.c
+@@ -410,7 +410,15 @@ PyCode_Optimize(PyObject *code, PyObject* consts, PyObject *names,
+                 SETARG(codestr, i, j);
+                 cumlc = lastlc + 1;
+                 break;
+-
++                /* Optimize LOAD_FAST LOAD_CONST -> LOAD_FC NOP */
++            case LOAD_FAST:
++                j = GETARG(codestr, i);
++                if (codestr[i+3] == LOAD_CONST &&
++                    j == 0) {
++                    codestr[i+3] = LOAD_FC;
++                    memset(codestr+i, NOP, 3);
++                }
++                break;
+                 /* Skip over LOAD_CONST trueconst
+                    POP_JUMP_IF_FALSE xx. This improves
+                    "while 1" performance. */
