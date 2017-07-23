@@ -257,6 +257,11 @@ class ClientIDsField(Field):
 
 
 class MetaRequest(type):
+    """Мета запрос.
+    Данный мета-класс будем применять ко всем запросам: MethodRequest, OnlineScoreRequest, ClientsInterestsRequest.
+    Перед созданием нового класса-запроса обходим все атрибуты, у которых базовый класс Field и
+    создаем словарь имя атрибута-класс поле. Сохраняем словарь в атрибуте request_fields.
+    """
     def __new__(cls, name, bases, attrs):
         request_fields = {}
         for k, v in attrs.items():
@@ -294,11 +299,13 @@ class BaseRequest(object):
 
 class ClientsInterestsRequest(BaseRequest):
     __metaclass__ = MetaRequest
+    # массив интересов, из которого будем генерировать случайные сэмплы
     _interests = ['python', 'perl', 'C', 'C++', 'C#', 'Pascal', 'Erlang', 'Lisp']
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
 
     def process(self, request, ctx):
+        """Обрабатываем метод clients_interests"""
         ctx['nclients'] = len(self.client_ids)
         response = {}
         for client in self.client_ids:
@@ -306,12 +313,13 @@ class ClientsInterestsRequest(BaseRequest):
         return response, OK
 
     def _gen_interests(self):
+        """Генериуем фейковые интересы для клиентов"""
         return random.sample(self._interests, 3)
 
 
 class OnlineScoreRequest(BaseRequest):
     __metaclass__ = MetaRequest
-    # phone-email, first name-last name, gender-birthday с непустыми значениями.
+    # пары полей, хотябы одна из пар не должна быть пустой
     _pairs = (
         ('phone', 'email'),
         ('first_name', 'last_name'),
@@ -328,9 +336,12 @@ class OnlineScoreRequest(BaseRequest):
         if not super(OnlineScoreRequest, self).is_valid():
             return False
         non_empty = set(self._get_all_non_empty())
+        # для каждой пары полей, которые не должны быть пустыми
+        # проверяем их наличие в множестве не пустых полей
         return any(non_empty.issuperset(el) for el in self._pairs)
 
     def process(self, request, ctx):
+        """Обработка метода online_score"""
         ctx['has'] = self._get_all_non_empty()
         if request.is_admin:
             return {'score': 42}, OK
@@ -344,7 +355,7 @@ class OnlineScoreRequest(BaseRequest):
 
 class MethodRequest(BaseRequest):
     __metaclass__ = MetaRequest
-
+    # мэппинг метод-класс, отвечающий за обработку данного метода
     method_cls = {
         'online_score': OnlineScoreRequest,
         'clients_interests': ClientsInterestsRequest
@@ -361,9 +372,11 @@ class MethodRequest(BaseRequest):
         return self.login == ADMIN_LOGIN
 
     def _get_method_instance(self):
+        """Создание объекта для обработки конкретного метода"""
         return self.method_cls[self.method](**self.arguments)
 
     def process(self, ctx):
+        """Обработка запроса"""
         method = self._get_method_instance()
         if not method.is_valid():
             return ERRORS.get(INVALID_REQUEST), INVALID_REQUEST
