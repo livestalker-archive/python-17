@@ -40,6 +40,10 @@
 # аргументы валидны, если валидны все поля по отдельности и если присутсвует хоть одна пара
 # phone-email, first name-last name, gender-birthday с непустыми значениями.
 
+# Контекст
+# в словарь контекста должна прописываться запись  "has" - список полей,
+# которые были не пустые для данного запроса
+
 # Ответ:
 # в ответ выдается произвольное число, которое больше или равно 0
 # {"score": <число>}
@@ -58,6 +62,10 @@
 
 # Валидация аругементов:
 # аргументы валидны, если валидны все поля по отдельности.
+
+# Контекст
+# в словарь контекста должна прописываться запись  "nclients" - количество id'шников,
+# переденанных в запрос
 
 # Ответ:
 # в ответ выдается словарь <id клиента>:<список интересов>. Список генерировать произвольно.
@@ -129,28 +137,63 @@ class ArgumentsField(Field):
 
 
 class EmailField(CharField):
-    pass
+    """Строка содержащая @"""
+
+    def is_valid(self, value):
+        if not super(EmailField, self).is_valid(value):
+            return False
+        if '@' not in value:
+            return False
+        return True
 
 
 class PhoneField(Field):
-    pass
+    """Поле должно быть строкой или числом.
+    Длинной 11 символов, начинаться с 7.
+    Опционально может быть пустым."""
+
+    def is_valid(self, value):
+        if not super(PhoneField, self).is_valid(value):
+            return False
+        if str(value) < 11 or not str(value).isdigit():
+            return False
+        return True
 
 
 class DateField(Field):
-    pass
+    """Дата в формате DD.MM.YYYY"""
+    def is_valid(self, value):
+        if not super(DateField, self).is_valid(value):
+            return False
+        try:
+            date = datetime.datetime.strptime(value, '%d.%m.%Y')
+            return True
+        except ValueError:
+            return False
 
 
-class BirthDayField(Field):
+class BirthDayField(DateField):
     pass
 
 
 class GenderField(Field):
-    pass
+    """Число 1, 2 или 3"""
+
+    def is_valid(self, value):
+        if not super(GenderField, self).is_valid(value):
+            return False
+        if not isinstance(value, int):
+            return False
+        if not (0 < value < 3):
+            return False
+        return True
 
 
 class ClientIDsField(Field):
+    """Поле массив чисел, обязательно не пустое."""
+
     def is_valid(self, value):
-        if not super(ClientIDsField, self).is_valid(self, value):
+        if not super(ClientIDsField, self).is_valid(value):
             return False
         if not isinstance(value, list):
             return False
@@ -216,15 +259,24 @@ class OnlineScoreRequest(BaseRequest):
 
 class MethodRequest(BaseRequest):
     __metaclass__ = MetaRequest
+
+    method_cls = {
+        'online_score': OnlineScoreRequest,
+        'clients_interests': ClientsInterestsRequest
+    }
+
     account = CharField(required=False, nullable=True)
     login = CharField(required=True, nullable=True)
     token = CharField(required=True, nullable=True)
     arguments = ArgumentsField(required=True, nullable=True)
-    method = CharField(required=True, nullable=True)
+    method = CharField(required=True, nullable=False)
 
     @property
     def is_admin(self):
         return self.login == ADMIN_LOGIN
+
+    def get_sub_request(self):
+        return self.method_cls[self.method](**self.arguments)
 
 
 def check_auth(request):
@@ -240,13 +292,14 @@ def check_auth(request):
 def method_handler(request, ctx):
     response, code = None, None
     body = request['body']
-    if not body:
-        return None, 422
     request = MethodRequest(**body)
     if not request.is_valid():
-        return None, 422
+        return ERRORS.get(422, 'Unknown error'), 422
     if not check_auth(request):
-        response, code = None, 403
+        return ERRORS.get(403, 'Unknown error'), 403
+    sub_request = request.get_sub_request()
+    if not sub_request.is_valid():
+        return ERRORS.get(422, 'Unknown error'), 422
     return response, code
 
 
