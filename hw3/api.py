@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Нужно реализовать простое HTTP API сервиса скоринга. Шаблон уже есть в api.py, тесты в test.py.
-# API необычно тем, что польщователи дергают методы POST запросами. Чтобы получить результат
+# API необычно тем, что пользователь дергают методы POST запросами. Чтобы получить результат
 # пользователь отправляет в POST запросе валидный JSON определенного формата на локейшн /method
 
 # Структура json-запроса:
@@ -78,6 +78,7 @@ import datetime
 import logging
 import hashlib
 import uuid
+import copy
 from optparse import OptionParser
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
@@ -107,11 +108,23 @@ GENDERS = {
 }
 
 
-class CharField(object):
+class Field(object):
+    def __init__(self, required=False, nullable=False):
+        self.required, self.nullable = required, nullable
+
+    def is_valid(self, value):
+        if self.required and value is None:
+            return False
+        if not self.nullable and not value:
+            return False
+        return True
+
+
+class CharField(Field):
     pass
 
 
-class ArgumentsField(object):
+class ArgumentsField(Field):
     pass
 
 
@@ -119,46 +132,95 @@ class EmailField(CharField):
     pass
 
 
-class PhoneField(object):
+class PhoneField(Field):
     pass
 
 
-class DateField(object):
+class DateField(Field):
     pass
 
 
-class BirthDayField(object):
+class BirthDayField(Field):
     pass
 
 
-class GenderField(object):
+class GenderField(Field):
     pass
 
 
-class ClientIDsField(object):
-    pass
+class ClientIDsField(Field):
+    def is_valid(self, value):
+        if not super(ClientIDsField, self).is_valid(self, value):
+            return False
+        if not isinstance(value, list):
+            return False
+        if len(value) == 0:
+            return False
+        for el in value:
+            if not isinstance(el, int):
+                return False
+        return True
 
 
-class ClientsInterestsRequest(object):
-    client_ids = ClientIDsField(requried=True)
-    date = DateField(requried=False, nullable=True)
+class MetaRequest(type):
+    def __new__(cls, name, bases, attrs):
+        request_fields = {}
+        for k, v in attrs.items():
+            if isinstance(v, Field):
+                request_fields[k] = v
+                attrs.pop(k)
+        attrs['request_fields'] = request_fields
+        new_class = super(MetaRequest, cls).__new__(cls, name, bases, attrs)
+        return new_class
 
 
-class OnlineScoreRequest(object):
-    first_name = CharField(requried=False, nullable=True)
-    last_name = CharField(requried=False, nullable=True)
-    email = EmailField(requried=False, nullable=True)
-    phone = PhoneField(requried=False, nullable=True)
-    birthday = BirthDayField(requried=False, nullable=True)
-    gender = GenderField(requried=False, nullable=True)
+class BaseRequest(object):
+    def __init__(self, *args, **kwargs):
+        self.request_fields = copy.deepcopy(self.request_fields)
+        for k, v in kwargs.items():
+            if k in self.request_fields:
+                setattr(self, k, v)
+
+    def is_valid(self):
+        return self.is_all_fields() and self.is_all_valid()
+
+    def is_all_fields(self):
+        for name, field in self.request_fields.items():
+            if field.required and not hasattr(self, name):
+                return False
+        return True
+
+    def is_all_valid(self):
+        for name, field in self.request_fields.items():
+            value = getattr(self, name, None)
+            if not field.is_valid(value):
+                return False
+        return True
 
 
-class MethodRequest(object):
-    account = CharField(requried=False, nullable=True)
-    login = CharField(requried=True, nullable=True)
-    token = CharField(requried=True, nullable=True)
-    arguments = ArgumentsField(requried=True, nullable=True)
-    method = CharField(requried=True, nullable=True)
+class ClientsInterestsRequest(BaseRequest):
+    __metaclass__ = MetaRequest
+    client_ids = ClientIDsField(required=True)
+    date = DateField(required=False, nullable=True)
+
+
+class OnlineScoreRequest(BaseRequest):
+    __metaclass__ = MetaRequest
+    first_name = CharField(required=False, nullable=True)
+    last_name = CharField(required=False, nullable=True)
+    email = EmailField(required=False, nullable=True)
+    phone = PhoneField(required=False, nullable=True)
+    birthday = BirthDayField(required=False, nullable=True)
+    gender = GenderField(required=False, nullable=True)
+
+
+class MethodRequest(BaseRequest):
+    __metaclass__ = MetaRequest
+    account = CharField(required=False, nullable=True)
+    login = CharField(required=True, nullable=True)
+    token = CharField(required=True, nullable=True)
+    arguments = ArgumentsField(required=True, nullable=True)
+    method = CharField(required=True, nullable=True)
 
     @property
     def is_admin(self):
@@ -177,6 +239,14 @@ def check_auth(request):
 
 def method_handler(request, ctx):
     response, code = None, None
+    body = request['body']
+    if not body:
+        return None, 422
+    request = MethodRequest(**body)
+    if not request.is_valid():
+        return None, 422
+    if not check_auth(request):
+        response, code = None, 403
     return response, code
 
 
@@ -222,7 +292,14 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(r))
         return
 
+
 if __name__ == "__main__":
+    #    req = MethodRequest(**{"account": "horns&hoofs",
+    #                           "login": "h&f",
+    #                           "method": "online_score",
+    #                           "token": "",
+    #                           "arguments": {}})
+    #    print req.account
     op = OptionParser()
     op.add_option("-p", "--port", action="store", type=int, default=8080)
     op.add_option("-l", "--log", action="store", default=None)
