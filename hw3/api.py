@@ -180,6 +180,10 @@ class DateField(Field):
     def is_valid(self, value):
         if not super(DateField, self).is_valid(value):
             return False
+        # Проверку на нулевое значение и присутствие мы уже проверили в родительском классе.
+        # Значение может быть None если поле в запросе отсутствует и ему разрешено отсутствовать.
+        if value is None:
+            return True
         try:
             date = datetime.datetime.strptime(value, '%d.%m.%Y')
             return True
@@ -269,8 +273,20 @@ class BaseRequest(object):
 
 class ClientsInterestsRequest(BaseRequest):
     __metaclass__ = MetaRequest
+    _interests = ['python', 'perl', 'C', 'C++', 'C#', 'Pascal', 'Erlang', 'Lisp']
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
+
+    def process(self, ctx):
+        ctx['nclients'] = len(self.client_ids)
+        code = 200
+        response = {}
+        for client in self.client_ids:
+            response[client] = self._gen_interests()
+        return response, code
+
+    def _gen_interests(self):
+        return random.sample(self._interests, 3)
 
 
 class OnlineScoreRequest(BaseRequest):
@@ -281,6 +297,9 @@ class OnlineScoreRequest(BaseRequest):
     phone = PhoneField(required=False, nullable=True)
     birthday = BirthDayField(required=False, nullable=True)
     gender = GenderField(required=False, nullable=True)
+
+    def process(self, ctx):
+        pass
 
 
 class MethodRequest(BaseRequest):
@@ -326,6 +345,7 @@ def method_handler(request, ctx):
     sub_request = request.get_sub_request()
     if not sub_request.is_valid():
         return ERRORS.get(422, 'Unknown error'), 422
+    response, code = sub_request.process(ctx)
     return response, code
 
 
