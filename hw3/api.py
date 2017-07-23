@@ -129,11 +129,25 @@ class Field(object):
 
 
 class CharField(Field):
-    pass
+    """Поле - строка"""
+
+    def is_valid(self, value):
+        if not super(CharField, self).is_valid(value):
+            return False
+        if not isinstance(value, str):
+            return False
+        return True
 
 
 class ArgumentsField(Field):
-    pass
+    """Словарь (объект в терминах json)"""
+
+    def is_valid(self, value):
+        if not super(ArgumentsField, self).is_valid(value):
+            return False
+        if not isinstance(value, dict):
+            return False
+        return True
 
 
 class EmailField(CharField):
@@ -162,6 +176,7 @@ class PhoneField(Field):
 
 class DateField(Field):
     """Дата в формате DD.MM.YYYY"""
+
     def is_valid(self, value):
         if not super(DateField, self).is_valid(value):
             return False
@@ -173,7 +188,18 @@ class DateField(Field):
 
 
 class BirthDayField(DateField):
-    pass
+    """Дата в формате DD.MM.YYYY, с которой прошло не больше 70 лет"""
+
+    def is_valid(self, value):
+        if not super(BirthDayField, self).is_valid(value):
+            return False
+        # TODO notes
+        date = datetime.datetime.strptime(value, '%d.%m.%Y').date()
+        date_today = datetime.date.today()
+        td = (date_today - date).days / 365
+        if not (0 < td < 70):
+            return False
+        return True
 
 
 class GenderField(Field):
