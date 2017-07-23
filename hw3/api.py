@@ -119,10 +119,16 @@ GENDERS = {
 
 
 class Field(object):
+    """Базовый класс для всех остальных полей."""
+
     def __init__(self, required=False, nullable=False):
         self.required, self.nullable = required, nullable
 
     def is_valid(self, value):
+        """Валидатор поля.
+        В базовом классе мы проверяем только:
+        1. требование к наличию поля
+        2. может ли поле быть пустым"""
         if self.required and value is None:
             return False
         if not self.nullable and not value:
