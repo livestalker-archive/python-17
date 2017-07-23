@@ -134,6 +134,8 @@ class CharField(Field):
     def is_valid(self, value):
         if not super(CharField, self).is_valid(value):
             return False
+        if value is None:
+            return True
         if not isinstance(value, str):
             return False
         return True
@@ -145,6 +147,8 @@ class ArgumentsField(Field):
     def is_valid(self, value):
         if not super(ArgumentsField, self).is_valid(value):
             return False
+        if value is None:
+            return True
         if not isinstance(value, dict):
             return False
         return True
@@ -156,6 +160,8 @@ class EmailField(CharField):
     def is_valid(self, value):
         if not super(EmailField, self).is_valid(value):
             return False
+        if value is None:
+            return True
         if '@' not in value:
             return False
         return True
@@ -169,7 +175,9 @@ class PhoneField(Field):
     def is_valid(self, value):
         if not super(PhoneField, self).is_valid(value):
             return False
-        if str(value) < 11 or not str(value).isdigit():
+        if value is None:
+            return True
+        if len(str(value)) < 11 or not str(value).isdigit() or str(value)[0] != '7':
             return False
         return True
 
@@ -197,7 +205,8 @@ class BirthDayField(DateField):
     def is_valid(self, value):
         if not super(BirthDayField, self).is_valid(value):
             return False
-        # TODO notes
+        if value is None:
+            return True
         date = datetime.datetime.strptime(value, '%d.%m.%Y').date()
         date_today = datetime.date.today()
         td = (date_today - date).days / 365
@@ -212,6 +221,8 @@ class GenderField(Field):
     def is_valid(self, value):
         if not super(GenderField, self).is_valid(value):
             return False
+        if value is None:
+            return True
         if not isinstance(value, int):
             return False
         if not (0 < value < 3):
@@ -225,6 +236,8 @@ class ClientIDsField(Field):
     def is_valid(self, value):
         if not super(ClientIDsField, self).is_valid(value):
             return False
+        if value is None:
+            return True
         if not isinstance(value, list):
             return False
         if len(value) == 0:
@@ -277,7 +290,7 @@ class ClientsInterestsRequest(BaseRequest):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
 
-    def process(self, ctx):
+    def process(self, request, ctx):
         ctx['nclients'] = len(self.client_ids)
         code = 200
         response = {}
@@ -291,6 +304,12 @@ class ClientsInterestsRequest(BaseRequest):
 
 class OnlineScoreRequest(BaseRequest):
     __metaclass__ = MetaRequest
+    # phone-email, first name-last name, gender-birthday с непустыми значениями.
+    _pairs = (
+        ('phone', 'email'),
+        ('first_name', 'last_name'),
+        ('gender', 'birthday')
+    )
     first_name = CharField(required=False, nullable=True)
     last_name = CharField(required=False, nullable=True)
     email = EmailField(required=False, nullable=True)
@@ -298,8 +317,22 @@ class OnlineScoreRequest(BaseRequest):
     birthday = BirthDayField(required=False, nullable=True)
     gender = GenderField(required=False, nullable=True)
 
-    def process(self, ctx):
-        pass
+    def is_valid(self):
+        if not super(OnlineScoreRequest, self).is_valid():
+            return False
+        non_empty = set(self._get_all_non_empty())
+        return any(non_empty.issuperset(el) for el in self._pairs)
+
+    def process(self, request, ctx):
+        ctx['has'] = self._get_all_non_empty()
+        if request.is_admin:
+            return {'score': 42}, 200
+        return {'score': 0}, 200
+
+    def _get_all_non_empty(self):
+        """Получаем список не пустых полей"""
+        return [name for name, field in self.request_fields.items()
+                if getattr(self, name, None) is not None]
 
 
 class MethodRequest(BaseRequest):
@@ -320,8 +353,14 @@ class MethodRequest(BaseRequest):
     def is_admin(self):
         return self.login == ADMIN_LOGIN
 
-    def get_sub_request(self):
+    def _get_method_instance(self):
         return self.method_cls[self.method](**self.arguments)
+
+    def process(self, ctx):
+        method = self._get_method_instance()
+        if not method.is_valid():
+            return ERRORS.get(422, 'Unknown error'), 422
+        return method.process(self, ctx)
 
 
 def check_auth(request):
@@ -335,17 +374,13 @@ def check_auth(request):
 
 
 def method_handler(request, ctx):
-    response, code = None, None
     body = request['body']
     request = MethodRequest(**body)
     if not request.is_valid():
         return ERRORS.get(422, 'Unknown error'), 422
     if not check_auth(request):
         return ERRORS.get(403, 'Unknown error'), 403
-    sub_request = request.get_sub_request()
-    if not sub_request.is_valid():
-        return ERRORS.get(422, 'Unknown error'), 422
-    response, code = sub_request.process(ctx)
+    response, code = request.process(ctx)
     return response, code
 
 
