@@ -225,7 +225,7 @@ class GenderField(Field):
             return True
         if not isinstance(value, int):
             return False
-        if not (0 < value < 3):
+        if not (0 <= value < 3):
             return False
         return True
 
