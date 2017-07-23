@@ -79,7 +79,6 @@
 # Требование: в результате в git должно быть только два(2!) файлика: api.py, test.py.
 # Deadline: следующее занятие
 
-import abc
 import json
 import random
 import datetime
@@ -93,12 +92,14 @@ from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
 ADMIN_SALT = "42"
+
 OK = 200
 BAD_REQUEST = 400
 FORBIDDEN = 403
 NOT_FOUND = 404
 INVALID_REQUEST = 422
 INTERNAL_ERROR = 500
+
 ERRORS = {
     BAD_REQUEST: "Bad Request",
     FORBIDDEN: "Forbidden",
@@ -106,6 +107,7 @@ ERRORS = {
     INVALID_REQUEST: "Invalid Request",
     INTERNAL_ERROR: "Internal Server Error",
 }
+
 UNKNOWN = 0
 MALE = 1
 FEMALE = 2
@@ -292,11 +294,10 @@ class ClientsInterestsRequest(BaseRequest):
 
     def process(self, request, ctx):
         ctx['nclients'] = len(self.client_ids)
-        code = 200
         response = {}
         for client in self.client_ids:
             response[client] = self._gen_interests()
-        return response, code
+        return response, OK
 
     def _gen_interests(self):
         return random.sample(self._interests, 3)
@@ -326,8 +327,8 @@ class OnlineScoreRequest(BaseRequest):
     def process(self, request, ctx):
         ctx['has'] = self._get_all_non_empty()
         if request.is_admin:
-            return {'score': 42}, 200
-        return {'score': 0}, 200
+            return {'score': 42}, OK
+        return {'score': 0}, OK
 
     def _get_all_non_empty(self):
         """Получаем список не пустых полей"""
@@ -359,7 +360,7 @@ class MethodRequest(BaseRequest):
     def process(self, ctx):
         method = self._get_method_instance()
         if not method.is_valid():
-            return ERRORS.get(422, 'Unknown error'), 422
+            return ERRORS.get(INVALID_REQUEST), INVALID_REQUEST
         return method.process(self, ctx)
 
 
@@ -377,9 +378,9 @@ def method_handler(request, ctx):
     body = request['body']
     request = MethodRequest(**body)
     if not request.is_valid():
-        return ERRORS.get(422, 'Unknown error'), 422
+        return ERRORS.get(INVALID_REQUEST), INVALID_REQUEST
     if not check_auth(request):
-        return ERRORS.get(403, 'Unknown error'), 403
+        return ERRORS.get(FORBIDDEN), FORBIDDEN
     response, code = request.process(ctx)
     return response, code
 
@@ -428,12 +429,6 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    #    req = MethodRequest(**{"account": "horns&hoofs",
-    #                           "login": "h&f",
-    #                           "method": "online_score",
-    #                           "token": "",
-    #                           "arguments": {}})
-    #    print req.account
     op = OptionParser()
     op.add_option("-p", "--port", action="store", type=int, default=8080)
     op.add_option("-l", "--log", action="store", default=None)
