@@ -108,6 +108,17 @@ ERRORS = {
     INTERNAL_ERROR: "Internal Server Error",
 }
 
+FIELD_REQUIRED = 'Field {} required.'
+FIELD_NULLABLE = 'Field {} can not be nullable.'
+FIELD_STR = 'Field {} must be a string.'
+FIELD_DICT = 'Field {} must be a dictionary.'
+FIELD_EMAIL = 'Field {} must be valid email address.'
+FIELD_PHONE = 'Field {} must be a string or number containing 11 digits and starting with 7.'
+FIELD_DATE = 'Field {} must be in DD.MM.YYYY format.'
+FIELD_BIRTHDAY = 'Age in field {} must be no more than 70 years.'
+FIELD_GENDER = 'Field {} must be one of the values [0, 1, 2].'
+FIELD_CLIENTID = 'Field {} must be list of numbers.'
+
 UNKNOWN = 0
 MALE = 1
 FEMALE = 2
@@ -123,6 +134,7 @@ class Field(object):
 
     def __init__(self, required=False, nullable=False):
         self.required, self.nullable = required, nullable
+        self._error = None
 
     def is_valid(self, value):
         """Валидатор поля.
@@ -130,10 +142,16 @@ class Field(object):
         1. требование к наличию поля
         2. может ли поле быть пустым"""
         if self.required and value is None:
+            self._error = FIELD_REQUIRED
             return False
         if not self.nullable and not value:
+            self._error = FIELD_NULLABLE
             return False
         return True
+
+    @property
+    def error(self):
+        return self._error
 
 
 class CharField(Field):
@@ -145,6 +163,7 @@ class CharField(Field):
         if value is None:
             return True
         if not isinstance(value, str):
+            self._error = FIELD_STR
             return False
         return True
 
@@ -158,6 +177,7 @@ class ArgumentsField(Field):
         if value is None:
             return True
         if not isinstance(value, dict):
+            self._error = FIELD_DICT
             return False
         return True
 
@@ -171,6 +191,7 @@ class EmailField(CharField):
         if value is None:
             return True
         if '@' not in value:
+            self._error = FIELD_EMAIL
             return False
         return True
 
@@ -186,6 +207,7 @@ class PhoneField(Field):
         if value is None:
             return True
         if len(str(value)) < 11 or not str(value).isdigit() or str(value)[0] != '7':
+            self._error = FIELD_PHONE
             return False
         return True
 
@@ -204,6 +226,7 @@ class DateField(Field):
             date = datetime.datetime.strptime(value, '%d.%m.%Y')
             return True
         except ValueError:
+            self._error = FIELD_DATE
             return False
 
 
@@ -219,6 +242,7 @@ class BirthDayField(DateField):
         date_today = datetime.date.today()
         td = (date_today - date).days / 365
         if not (0 < td < 70):
+            self._error = FIELD_BIRTHDAY
             return False
         return True
 
@@ -232,8 +256,10 @@ class GenderField(Field):
         if value is None:
             return True
         if not isinstance(value, int):
+            self._error = FIELD_GENDER
             return False
         if not (0 <= value < 3):
+            self._error = FIELD_GENDER
             return False
         return True
 
@@ -247,11 +273,11 @@ class ClientIDsField(Field):
         if value is None:
             return True
         if not isinstance(value, list):
-            return False
-        if len(value) == 0:
+            self._error = FIELD_CLIENTID
             return False
         for el in value:
             if not isinstance(el, int):
+                self._error = FIELD_CLIENTID
                 return False
         return True
 
@@ -277,25 +303,22 @@ class BaseRequest(object):
     def __init__(self, *args, **kwargs):
         # сделаем копию списка полей
         self.request_fields = copy.deepcopy(self.request_fields)
+        self.errors = []
         for k, v in kwargs.items():
             # если атрибут есть в DSL добавляем его как атрибут инстанса
             if k in self.request_fields:
                 setattr(self, k, v)
 
     def is_valid(self):
-        return self.is_all_fields() and self.is_all_valid()
-
-    def is_all_fields(self):
-        for name, field in self.request_fields.items():
-            if field.required and not hasattr(self, name):
-                return False
-        return True
+        return self.is_all_valid()
 
     def is_all_valid(self):
         for name, field in self.request_fields.items():
             value = getattr(self, name, None)
             if not field.is_valid(value):
-                return False
+                self.errors.append(field.error.format(name))
+        if len(self.errors) > 0:
+            return False
         return True
 
 
@@ -381,7 +404,7 @@ class MethodRequest(BaseRequest):
         """Обработка запроса"""
         method = self._get_method_instance()
         if not method.is_valid():
-            return ERRORS.get(INVALID_REQUEST), INVALID_REQUEST
+            return '{} {}'.format(ERRORS.get(INVALID_REQUEST), ' '.join(method.errors)), INVALID_REQUEST
         return method.process(self, ctx)
 
 
@@ -399,7 +422,7 @@ def method_handler(request, ctx):
     body = request['body']
     request = MethodRequest(**body)
     if not request.is_valid():
-        return ERRORS.get(INVALID_REQUEST), INVALID_REQUEST
+        return '{} {}'.format(ERRORS.get(INVALID_REQUEST), ' '.join(request.errors)), INVALID_REQUEST
     if not check_auth(request):
         return ERRORS.get(FORBIDDEN), FORBIDDEN
     response, code = request.process(ctx)
