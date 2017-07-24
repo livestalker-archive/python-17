@@ -13,7 +13,9 @@ def cases(cases):
             for c in cases:
                 new_args = args + (c if isinstance(c, tuple) else (c,))
                 f(*new_args)
+
         return wrapper
+
     return decorator
 
 
@@ -133,8 +135,56 @@ class TestSuite(unittest.TestCase):
         self.assertEqual(api.OK, code, arguments)
         self.assertEqual(len(arguments["client_ids"]), len(response))
         self.assertTrue(all(v and isinstance(v, list) and all(isinstance(i, basestring) for i in v)
-                        for v in response.values()))
+                            for v in response.values()))
         self.assertEqual(self.context.get("nclients"), len(arguments["client_ids"]))
+
+    def test_field_class(self):
+        field = api.Field(required=False, nullable=False)
+        self.assertEqual(field.is_valid(1), True)
+        self.assertEqual(field.is_valid('1'), True)
+        self.assertEqual(field.is_valid([]), False)
+        self.assertEqual(field.is_valid(''), False)
+        self.assertEqual(field.is_valid(None), False)
+        field = api.Field(required=False, nullable=True)
+        self.assertEqual(field.is_valid(1), True)
+        self.assertEqual(field.is_valid('1'), True)
+        self.assertEqual(field.is_valid([]), True)
+        self.assertEqual(field.is_valid(''), True)
+        self.assertEqual(field.is_valid(None), True)
+        field = api.Field(required=True, nullable=False)
+        self.assertEqual(field.is_valid(1), True)
+        self.assertEqual(field.is_valid('1'), True)
+        self.assertEqual(field.is_valid([]), False)
+        self.assertEqual(field.is_valid(''), False)
+        self.assertEqual(field.is_valid(None), False)
+        field = api.Field(required=True, nullable=True)
+
+    @cases([(False, False, '', False),
+            (False, True, '', True),
+            (True, False, '', False),
+            (True, True, '', True),
+            (False, False, None, False),
+            (False, True, None, True),
+            (True, False, None, False),
+            (True, True, None, False),
+            (True, True, 1, False),
+            (True, True, '1', True),
+            ])
+    def test_charfield_class(self, *params):
+        required, nullable, value, result = params
+        field = api.CharField(required, nullable)
+        self.assertEqual(field.is_valid(value), result, params)
+
+    def test_get_all_non_empty(self):
+        kwargs = {
+            'first_name': 'First',
+            'last_name': 'Last'
+        }
+        score_request = api.OnlineScoreRequest(**kwargs)
+        fields = score_request._get_all_non_empty()
+        self.assertEqual('first_name' in fields, True)
+        self.assertEqual('last_name' in fields, True)
+
 
 if __name__ == "__main__":
     unittest.main()

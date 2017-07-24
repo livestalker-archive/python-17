@@ -224,7 +224,7 @@ class BirthDayField(DateField):
 
 
 class GenderField(Field):
-    """Число 1, 2 или 3"""
+    """Число 0, 1 или 2"""
 
     def is_valid(self, value):
         if not super(GenderField, self).is_valid(value):
@@ -275,8 +275,10 @@ class MetaRequest(type):
 
 class BaseRequest(object):
     def __init__(self, *args, **kwargs):
+        # сделаем копию списка полей
         self.request_fields = copy.deepcopy(self.request_fields)
         for k, v in kwargs.items():
+            # если атрибут есть в DSL добавляем его как атрибут инстанса
             if k in self.request_fields:
                 setattr(self, k, v)
 
@@ -345,7 +347,7 @@ class OnlineScoreRequest(BaseRequest):
         ctx['has'] = self._get_all_non_empty()
         if request.is_admin:
             return {'score': 42}, OK
-        return {'score': 0}, OK
+        return {'score': random.randrange(0, 10)}, OK
 
     def _get_all_non_empty(self):
         """Получаем список не пустых полей"""
