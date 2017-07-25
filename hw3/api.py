@@ -86,6 +86,7 @@ import logging
 import hashlib
 import uuid
 import copy
+import collections
 from optparse import OptionParser
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
@@ -118,6 +119,7 @@ FIELD_DATE = 'Field {} must be in DD.MM.YYYY format.'
 FIELD_BIRTHDAY = 'Age in field {} must be no more than 70 years.'
 FIELD_GENDER = 'Field {} must be one of the values [0, 1, 2].'
 FIELD_CLIENTID = 'Field {} must be list of numbers.'
+FIELD_PAIRS = 'One of the pairs {} must not be empty.'
 
 UNKNOWN = 0
 MALE = 1
@@ -162,7 +164,7 @@ class CharField(Field):
             return False
         if value is None:
             return True
-        if not isinstance(value, str):
+        if not isinstance(value, str) and not isinstance(value, unicode):
             self._error = FIELD_STR
             return False
         return True
@@ -176,7 +178,7 @@ class ArgumentsField(Field):
             return False
         if value is None:
             return True
-        if not isinstance(value, dict):
+        if not isinstance(value, collections.Mapping):
             self._error = FIELD_DICT
             return False
         return True
@@ -272,7 +274,7 @@ class ClientIDsField(Field):
             return False
         if value is None:
             return True
-        if not isinstance(value, list):
+        if not isinstance(value, collections.MutableSequence):
             self._error = FIELD_CLIENTID
             return False
         for el in value:
@@ -363,7 +365,11 @@ class OnlineScoreRequest(BaseRequest):
         non_empty = set(self._get_all_non_empty())
         # для каждой пары полей, которые не должны быть пустыми
         # проверяем их наличие в множестве не пустых полей
-        return any(non_empty.issuperset(el) for el in self._pairs)
+        result = any(non_empty.issuperset(el) for el in self._pairs)
+        if not result:
+            self.errors.append(FIELD_PAIRS.format(self._pairs))
+            return False
+        return True
 
     def process(self, request, ctx):
         """Обработка метода online_score"""
@@ -412,6 +418,8 @@ def check_auth(request):
     if request.login == ADMIN_LOGIN:
         digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
     else:
+        if not hasattr(request, 'account') or request.account is None:
+            return False
         digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
     if digest == request.token:
         return True
