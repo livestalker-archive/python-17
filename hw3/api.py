@@ -109,18 +109,6 @@ ERRORS = {
     INTERNAL_ERROR: "Internal Server Error",
 }
 
-FIELD_REQUIRED = 'Field {} required.'
-FIELD_NULLABLE = 'Field {} can not be nullable.'
-FIELD_STR = 'Field {} must be a string.'
-FIELD_DICT = 'Field {} must be a dictionary.'
-FIELD_EMAIL = 'Field {} must be valid email address.'
-FIELD_PHONE = 'Field {} must be a string or number containing 11 digits and starting with 7.'
-FIELD_DATE = 'Field {} must be in DD.MM.YYYY format.'
-FIELD_BIRTHDAY = 'Age in field {} must be no more than 70 years.'
-FIELD_GENDER = 'Field {} must be one of the values [0, 1, 2].'
-FIELD_CLIENTID = 'Field {} must be list of numbers.'
-FIELD_PAIRS = 'One of the pairs {} must not be empty.'
-
 UNKNOWN = 0
 MALE = 1
 FEMALE = 2
@@ -133,6 +121,8 @@ GENDERS = {
 
 class Field(object):
     """Базовый класс для всех остальных полей."""
+    FIELD_REQUIRED = 'Field {} required.'
+    FIELD_NULLABLE = 'Field {} can not be nullable.'
 
     def __init__(self, required=False, nullable=False):
         self.required, self.nullable = required, nullable
@@ -144,10 +134,10 @@ class Field(object):
         1. требование к наличию поля
         2. может ли поле быть пустым"""
         if self.required and value is None:
-            self._error = FIELD_REQUIRED
+            self._error = self.FIELD_REQUIRED
             return False
         if not self.nullable and not value:
-            self._error = FIELD_NULLABLE
+            self._error = self.FIELD_NULLABLE
             return False
         return True
 
@@ -158,6 +148,7 @@ class Field(object):
 
 class CharField(Field):
     """Поле - строка"""
+    FIELD_STR = 'Field {} must be a string.'
 
     def is_valid(self, value):
         if not super(CharField, self).is_valid(value):
@@ -165,13 +156,14 @@ class CharField(Field):
         if value is None:
             return True
         if not isinstance(value, str) and not isinstance(value, unicode):
-            self._error = FIELD_STR
+            self._error = self.FIELD_STR
             return False
         return True
 
 
 class ArgumentsField(Field):
     """Словарь (объект в терминах json)"""
+    FIELD_DICT = 'Field {} must be a dictionary.'
 
     def is_valid(self, value):
         if not super(ArgumentsField, self).is_valid(value):
@@ -179,13 +171,14 @@ class ArgumentsField(Field):
         if value is None:
             return True
         if not isinstance(value, collections.Mapping):
-            self._error = FIELD_DICT
+            self._error = self.FIELD_DICT
             return False
         return True
 
 
 class EmailField(CharField):
     """Строка содержащая @"""
+    FIELD_EMAIL = 'Field {} must be valid email address.'
 
     def is_valid(self, value):
         if not super(EmailField, self).is_valid(value):
@@ -193,7 +186,7 @@ class EmailField(CharField):
         if value is None:
             return True
         if '@' not in value:
-            self._error = FIELD_EMAIL
+            self._error = self.FIELD_EMAIL
             return False
         return True
 
@@ -202,6 +195,7 @@ class PhoneField(Field):
     """Поле должно быть строкой или числом.
     Длинной 11 символов, начинаться с 7.
     Опционально может быть пустым."""
+    FIELD_PHONE = 'Field {} must be a string or number containing 11 digits and starting with 7.'
 
     def is_valid(self, value):
         if not super(PhoneField, self).is_valid(value):
@@ -209,13 +203,14 @@ class PhoneField(Field):
         if value is None:
             return True
         if len(str(value)) < 11 or not str(value).isdigit() or str(value)[0] != '7':
-            self._error = FIELD_PHONE
+            self._error = self.FIELD_PHONE
             return False
         return True
 
 
 class DateField(Field):
     """Дата в формате DD.MM.YYYY"""
+    FIELD_DATE = 'Field {} must be in DD.MM.YYYY format.'
 
     def is_valid(self, value):
         if not super(DateField, self).is_valid(value):
@@ -228,12 +223,13 @@ class DateField(Field):
             date = datetime.datetime.strptime(value, '%d.%m.%Y')
             return True
         except ValueError:
-            self._error = FIELD_DATE
+            self._error = self.FIELD_DATE
             return False
 
 
 class BirthDayField(DateField):
     """Дата в формате DD.MM.YYYY, с которой прошло не больше 70 лет"""
+    FIELD_BIRTHDAY = 'Age in field {} must be no more than 70 years.'
 
     def is_valid(self, value):
         if not super(BirthDayField, self).is_valid(value):
@@ -244,13 +240,14 @@ class BirthDayField(DateField):
         date_today = datetime.date.today()
         td = (date_today - date).days / 365
         if not (0 < td < 70):
-            self._error = FIELD_BIRTHDAY
+            self._error = self.FIELD_BIRTHDAY
             return False
         return True
 
 
 class GenderField(Field):
     """Число 0, 1 или 2"""
+    FIELD_GENDER = 'Field {} must be one of the values [0, 1, 2].'
 
     def is_valid(self, value):
         if not super(GenderField, self).is_valid(value):
@@ -258,16 +255,17 @@ class GenderField(Field):
         if value is None:
             return True
         if not isinstance(value, int):
-            self._error = FIELD_GENDER
+            self._error = self.FIELD_GENDER
             return False
         if not (0 <= value < 3):
-            self._error = FIELD_GENDER
+            self._error = self.FIELD_GENDER
             return False
         return True
 
 
 class ClientIDsField(Field):
     """Поле массив чисел, обязательно не пустое."""
+    FIELD_CLIENTID = 'Field {} must be list of numbers.'
 
     def is_valid(self, value):
         if not super(ClientIDsField, self).is_valid(value):
@@ -275,11 +273,11 @@ class ClientIDsField(Field):
         if value is None:
             return True
         if not isinstance(value, collections.MutableSequence):
-            self._error = FIELD_CLIENTID
+            self._error = self.FIELD_CLIENTID
             return False
         for el in value:
             if not isinstance(el, int):
-                self._error = FIELD_CLIENTID
+                self._error = self.FIELD_CLIENTID
                 return False
         return True
 
@@ -290,6 +288,7 @@ class MetaRequest(type):
     Перед созданием нового класса-запроса обходим все атрибуты, у которых базовый класс Field и
     создаем словарь имя атрибута-класс поле. Сохраняем словарь в атрибуте request_fields.
     """
+
     def __new__(cls, name, bases, attrs):
         request_fields = {}
         for k, v in attrs.items():
@@ -302,6 +301,7 @@ class MetaRequest(type):
 
 
 class BaseRequest(object):
+    __metaclass__ = MetaRequest
     def __init__(self, *args, **kwargs):
         # сделаем копию списка полей
         self.request_fields = copy.deepcopy(self.request_fields)
@@ -325,7 +325,6 @@ class BaseRequest(object):
 
 
 class ClientsInterestsRequest(BaseRequest):
-    __metaclass__ = MetaRequest
     # массив интересов, из которого будем генерировать случайные сэмплы
     _interests = ['python', 'perl', 'C', 'C++', 'C#', 'Pascal', 'Erlang', 'Lisp']
     client_ids = ClientIDsField(required=True)
@@ -345,7 +344,7 @@ class ClientsInterestsRequest(BaseRequest):
 
 
 class OnlineScoreRequest(BaseRequest):
-    __metaclass__ = MetaRequest
+    FIELD_PAIRS = 'One of the pairs {} must not be empty.'
     # пары полей, хотябы одна из пар не должна быть пустой
     _pairs = (
         ('phone', 'email'),
@@ -367,7 +366,7 @@ class OnlineScoreRequest(BaseRequest):
         # проверяем их наличие в множестве не пустых полей
         result = any(non_empty.issuperset(el) for el in self._pairs)
         if not result:
-            self.errors.append(FIELD_PAIRS.format(self._pairs))
+            self.errors.append(self.FIELD_PAIRS.format(self._pairs))
             return False
         return True
 
@@ -385,7 +384,6 @@ class OnlineScoreRequest(BaseRequest):
 
 
 class MethodRequest(BaseRequest):
-    __metaclass__ = MetaRequest
     # мэппинг метод-класс, отвечающий за обработку данного метода
     method_cls = {
         'online_score': OnlineScoreRequest,
@@ -410,7 +408,7 @@ class MethodRequest(BaseRequest):
         """Обработка запроса"""
         method = self._get_method_instance()
         if not method.is_valid():
-            return '{} {}'.format(ERRORS.get(INVALID_REQUEST), ' '.join(method.errors)), INVALID_REQUEST
+            return join_errors(INVALID_REQUEST, method.errors)
         return method.process(self, ctx)
 
 
@@ -428,13 +426,19 @@ def check_auth(request):
 
 def method_handler(request, ctx):
     body = request['body']
+    if not isinstance(body, collections.Mapping):
+        return None, INVALID_REQUEST
     request = MethodRequest(**body)
     if not request.is_valid():
-        return '{} {}'.format(ERRORS.get(INVALID_REQUEST), ' '.join(request.errors)), INVALID_REQUEST
+        return join_errors(INVALID_REQUEST, request.errors)
     if not check_auth(request):
-        return ERRORS.get(FORBIDDEN), FORBIDDEN
+        return None, FORBIDDEN
     response, code = request.process(ctx)
     return response, code
+
+
+def join_errors(error_code, errors):
+    return '{} {}'.format(error_code, ' '.join(errors)), error_code
 
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
