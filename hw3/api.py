@@ -324,6 +324,13 @@ class BaseRequest(object):
             return False
         return True
 
+    def _get_all_non_empty(self):
+        """Получаем список не пустых полей"""
+        existing_fields = (name for name, field in self.request_fields.items()
+                           if getattr(self, name, None) is not None)
+        non_empty_fields = (name for name in existing_fields if getattr(self, name) not in ([], {}, ''))
+        return non_empty_fields
+
 
 class ClientsInterestsRequest(BaseRequest):
     # массив интересов, из которого будем генерировать случайные сэмплы
@@ -377,11 +384,6 @@ class OnlineScoreRequest(BaseRequest):
         if request.is_admin:
             return {'score': 42}, OK
         return {'score': random.randrange(0, 10)}, OK
-
-    def _get_all_non_empty(self):
-        """Получаем список не пустых полей"""
-        return [name for name, field in self.request_fields.items()
-                if getattr(self, name, None) is not None]
 
 
 class MethodRequest(BaseRequest):
