@@ -302,6 +302,7 @@ class MetaRequest(type):
 
 class BaseRequest(object):
     __metaclass__ = MetaRequest
+
     def __init__(self, *args, **kwargs):
         # сделаем копию списка полей
         self.request_fields = copy.deepcopy(self.request_fields)
@@ -389,7 +390,7 @@ class MethodRequest(BaseRequest):
         'online_score': OnlineScoreRequest,
         'clients_interests': ClientsInterestsRequest
     }
-
+    NOT_EXISTS = 'Method {} does not exists.'
     account = CharField(required=False, nullable=True)
     login = CharField(required=True, nullable=True)
     token = CharField(required=True, nullable=True)
@@ -404,8 +405,14 @@ class MethodRequest(BaseRequest):
         """Создание объекта для обработки конкретного метода"""
         return self.method_cls[self.method](**self.arguments)
 
+    def _is_method_exists(self):
+        """Проверяем есть ли метод в нашем словаре методов"""
+        return True if self.method in self.method_cls else False
+
     def process(self, ctx):
         """Обработка запроса"""
+        if not self._is_method_exists():
+            return join_errors(INVALID_REQUEST, [self.NOT_EXISTS.format(self.method)])
         method = self._get_method_instance()
         if not method.is_valid():
             return join_errors(INVALID_REQUEST, method.errors)
@@ -438,7 +445,7 @@ def method_handler(request, ctx):
 
 
 def join_errors(error_code, errors):
-    return '{} {}'.format(error_code, ' '.join(errors)), error_code
+    return '{} - {}'.format(ERRORS.get(error_code, "Unknown Error"), ' '.join(errors)), error_code
 
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
