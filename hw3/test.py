@@ -138,38 +138,10 @@ class TestSuite(unittest.TestCase):
                             for v in response.values()))
         self.assertEqual(self.context.get("nclients"), len(arguments["client_ids"]))
 
-    def test_field_class(self):
-        field = api.Field(required=False, nullable=False)
-        self.assertEqual(field.is_valid(1), True)
-        self.assertEqual(field.is_valid('1'), True)
-        self.assertEqual(field.is_valid([]), False)
-        self.assertEqual(field.is_valid(''), False)
-        self.assertEqual(field.is_valid(None), False)
-        field = api.Field(required=False, nullable=True)
-        self.assertEqual(field.is_valid(1), True)
-        self.assertEqual(field.is_valid('1'), True)
-        self.assertEqual(field.is_valid([]), True)
-        self.assertEqual(field.is_valid(''), True)
-        self.assertEqual(field.is_valid(None), True)
-        field = api.Field(required=True, nullable=False)
-        self.assertEqual(field.is_valid(1), True)
-        self.assertEqual(field.is_valid('1'), True)
-        self.assertEqual(field.is_valid([]), False)
-        self.assertEqual(field.is_valid(''), False)
-        self.assertEqual(field.is_valid(None), False)
-        field = api.Field(required=True, nullable=True)
-
-    @cases([(False, False, '', False),
-            (False, True, '', True),
-            (True, False, '', False),
-            (True, True, '', True),
-            (False, False, None, False),
-            (False, True, None, True),
-            (True, False, None, False),
-            (True, True, None, False),
-            (True, True, 1, False),
-            (True, True, '1', True),
-            ])
+    @cases([
+        (True, True, 1, False),
+        (True, True, '1', True),
+    ])
     def test_charfield_class(self, *params):
         required, nullable, value, result = params
         field = api.CharField(required, nullable)
@@ -181,7 +153,7 @@ class TestSuite(unittest.TestCase):
             'last_name': 'Last'
         }
         score_request = api.OnlineScoreRequest(**kwargs)
-        fields = score_request._get_all_non_empty()
+        fields = score_request._get_non_empty_request_fields()
         self.assertEqual('first_name' in fields, True)
         self.assertEqual('last_name' in fields, True)
 

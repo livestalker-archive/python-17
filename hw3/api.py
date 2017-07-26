@@ -121,24 +121,13 @@ GENDERS = {
 
 class Field(object):
     """Базовый класс для всех остальных полей."""
-    FIELD_REQUIRED = 'Field {} required.'
-    FIELD_NULLABLE = 'Field {} can not be nullable.'
 
     def __init__(self, required=False, nullable=False):
         self.required, self.nullable = required, nullable
         self._error = None
 
     def is_valid(self, value):
-        """Валидатор поля.
-        В базовом классе мы проверяем только:
-        1. требование к наличию поля
-        2. может ли поле быть пустым"""
-        if self.required and value is None:
-            self._error = self.FIELD_REQUIRED
-            return False
-        if not self.nullable and not value:
-            self._error = self.FIELD_NULLABLE
-            return False
+        # считаем, что простое поле всегда валидно
         return True
 
     @property
@@ -151,10 +140,6 @@ class CharField(Field):
     FIELD_STR = 'Field {} must be a string.'
 
     def is_valid(self, value):
-        if not super(CharField, self).is_valid(value):
-            return False
-        if value is None:
-            return True
         if not isinstance(value, str) and not isinstance(value, unicode):
             self._error = self.FIELD_STR
             return False
@@ -166,10 +151,6 @@ class ArgumentsField(Field):
     FIELD_DICT = 'Field {} must be a dictionary.'
 
     def is_valid(self, value):
-        if not super(ArgumentsField, self).is_valid(value):
-            return False
-        if value is None:
-            return True
         if not isinstance(value, collections.Mapping):
             self._error = self.FIELD_DICT
             return False
@@ -181,10 +162,6 @@ class EmailField(CharField):
     FIELD_EMAIL = 'Field {} must be valid email address.'
 
     def is_valid(self, value):
-        if not super(EmailField, self).is_valid(value):
-            return False
-        if value is None:
-            return True
         if '@' not in value:
             self._error = self.FIELD_EMAIL
             return False
@@ -198,10 +175,6 @@ class PhoneField(Field):
     FIELD_PHONE = 'Field {} must be a string or number containing 11 digits and starting with 7.'
 
     def is_valid(self, value):
-        if not super(PhoneField, self).is_valid(value):
-            return False
-        if value is None:
-            return True
         if len(str(value)) < 11 or not str(value).isdigit() or str(value)[0] != '7':
             self._error = self.FIELD_PHONE
             return False
@@ -213,12 +186,6 @@ class DateField(Field):
     FIELD_DATE = 'Field {} must be in DD.MM.YYYY format.'
 
     def is_valid(self, value):
-        if not super(DateField, self).is_valid(value):
-            return False
-        # Проверку на нулевое значение и присутствие мы уже проверили в родительском классе.
-        # Значение может быть None если поле в запросе отсутствует и ему разрешено отсутствовать.
-        if value is None:
-            return True
         try:
             date = datetime.datetime.strptime(value, '%d.%m.%Y')
             return True
@@ -234,8 +201,6 @@ class BirthDayField(DateField):
     def is_valid(self, value):
         if not super(BirthDayField, self).is_valid(value):
             return False
-        if value is None:
-            return True
         date = datetime.datetime.strptime(value, '%d.%m.%Y').date()
         date_today = datetime.date.today()
         td = (date_today - date).days / 365
@@ -250,10 +215,6 @@ class GenderField(Field):
     FIELD_GENDER = 'Field {} must be one of the values [0, 1, 2].'
 
     def is_valid(self, value):
-        if not super(GenderField, self).is_valid(value):
-            return False
-        if value is None:
-            return True
         if not isinstance(value, int):
             self._error = self.FIELD_GENDER
             return False
@@ -268,10 +229,6 @@ class ClientIDsField(Field):
     FIELD_CLIENTID = 'Field {} must be list of numbers.'
 
     def is_valid(self, value):
-        if not super(ClientIDsField, self).is_valid(value):
-            return False
-        if value is None:
-            return True
         if not isinstance(value, collections.MutableSequence):
             self._error = self.FIELD_CLIENTID
             return False
@@ -302,6 +259,8 @@ class MetaRequest(type):
 
 class BaseRequest(object):
     __metaclass__ = MetaRequest
+    FIELD_REQUIRED = 'Field {} required.'
+    FIELD_NULLABLE = 'Field {} can not be nullable.'
 
     def __init__(self, *args, **kwargs):
         # сделаем копию списка полей
@@ -316,16 +275,35 @@ class BaseRequest(object):
         return self.is_all_valid()
 
     def is_all_valid(self):
-        for name, field in self.request_fields.items():
+        # проверяем все ли требуемые поля есть в запросе
+        for name in self._get_all_required():
+            if not hasattr(self, name):
+                self.errors.append(self.FIELD_REQUIRED.format(name))
+        # проверяем все ли поля, которые должны быть не пустыми, реально не пустые в запросе
+        fields = list(self._get_non_empty_request_fields())
+        for name in self._get_all_not_nullable():
+            if name not in fields:
+                self.errors.append(self.FIELD_NULLABLE.format(name))
+        # проверяем все не пустые поля на валидность соответствующего формата
+        for name in self._get_non_empty_request_fields():
             value = getattr(self, name, None)
+            field = self.request_fields[name]
             if not field.is_valid(value):
                 self.errors.append(field.error.format(name))
         if len(self.errors) > 0:
             return False
         return True
 
-    def _get_all_non_empty(self):
-        """Получаем список не пустых полей"""
+    def _get_all_required(self):
+        """Получаем генератор списка полей, которые должны быть в запросе"""
+        return (name for name, field in self.request_fields.items() if field.required)
+
+    def _get_all_not_nullable(self):
+        """Получаем генератор списока полей, которые не могут быть nullable"""
+        return (name for name, field in self.request_fields.items() if not field.nullable)
+
+    def _get_non_empty_request_fields(self):
+        """Получаем генератор списока не пустых полей реального запроса"""
         existing_fields = (name for name, field in self.request_fields.items()
                            if getattr(self, name, None) is not None)
         non_empty_fields = (name for name in existing_fields if getattr(self, name) not in ([], {}, ''))
@@ -369,7 +347,7 @@ class OnlineScoreRequest(BaseRequest):
     def is_valid(self):
         if not super(OnlineScoreRequest, self).is_valid():
             return False
-        non_empty = set(self._get_all_non_empty())
+        non_empty = set(self._get_non_empty_request_fields())
         # для каждой пары полей, которые не должны быть пустыми
         # проверяем их наличие в множестве не пустых полей
         result = any(non_empty.issuperset(el) for el in self._pairs)
@@ -380,7 +358,7 @@ class OnlineScoreRequest(BaseRequest):
 
     def process(self, request, ctx):
         """Обработка метода online_score"""
-        ctx['has'] = self._get_all_non_empty()
+        ctx['has'] = list(self._get_non_empty_request_fields())
         if request.is_admin:
             return {'score': 42}, OK
         return {'score': random.randrange(0, 10)}, OK
