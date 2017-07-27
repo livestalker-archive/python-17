@@ -138,25 +138,6 @@ class TestSuite(unittest.TestCase):
                             for v in response.values()))
         self.assertEqual(self.context.get("nclients"), len(arguments["client_ids"]))
 
-    @cases([
-        (True, True, 1, False),
-        (True, True, '1', True),
-    ])
-    def test_charfield_class(self, *params):
-        required, nullable, value, result = params
-        field = api.CharField(required, nullable)
-        self.assertEqual(field.is_valid(value), result, params)
-
-    def test_get_all_non_empty(self):
-        kwargs = {
-            'first_name': 'First',
-            'last_name': 'Last'
-        }
-        score_request = api.OnlineScoreRequest(**kwargs)
-        fields = score_request._get_non_empty_request_fields()
-        self.assertEqual('first_name' in fields, True)
-        self.assertEqual('last_name' in fields, True)
-
 
 if __name__ == "__main__":
     unittest.main()
