@@ -281,7 +281,7 @@ class BaseRequest(object):
                 self.errors.append(self.FIELD_VALIDATION.format(name, e))
         self.is_parsed = True
 
-    def _get_non_empty_request_fields(self):
+    def get_non_empty_request_fields(self):
         """Получаем генератор списока не пустых полей реального запроса"""
         existing_fields = (name for name, field in self.request_fields.items()
                            if getattr(self, name, None) is not None)
@@ -314,7 +314,7 @@ class OnlineScoreRequest(BaseRequest):
         pre_check = super(OnlineScoreRequest, self).is_valid()
         if not pre_check:
             return pre_check
-        non_empty = set(self._get_non_empty_request_fields())
+        non_empty = set(self.get_non_empty_request_fields())
         # для каждой пары полей, которые не должны быть пустыми
         # проверяем их наличие в множестве не пустых полей
         result = any(non_empty.issuperset(el) for el in self._pairs)
@@ -366,7 +366,7 @@ class OnlineScoreHandler(ApiHandler):
 
     def process(self, request, method_data, ctx):
         """Обработка метода online_score"""
-        ctx['has'] = list(method_data._get_non_empty_request_fields())
+        ctx['has'] = list(method_data.get_non_empty_request_fields())
         if request.is_admin:
             return {'score': 42}, OK
         return {'score': random.randrange(0, 10)}, OK
