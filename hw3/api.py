@@ -338,8 +338,10 @@ class MethodRequest(BaseRequest):
 
 
 class ApiHandler(object):
-    def process(self, request, method_data, ctx):
-        return None, OK
+    def validate_process(self, request, method_data, ctx):
+        if not method_data.is_valid():
+            return join_errors(INVALID_REQUEST, request.errors)
+        return self.process(request, method_data, ctx)
 
 
 class ClientsInterestsHandler(ApiHandler):
@@ -401,9 +403,7 @@ def method_handler(request, ctx):
         return "Method Not Found", NOT_FOUND
     arguments = request.arguments
     method_data = handler.request_cls(**arguments)
-    if not method_data.is_valid():
-        return join_errors(INVALID_REQUEST, request.errors)
-    return handler().process(request, method_data, ctx)
+    return handler().validate_process(request, method_data, ctx)
 
 
 def join_errors(error_code, errors):
