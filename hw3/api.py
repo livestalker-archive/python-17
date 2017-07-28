@@ -129,10 +129,6 @@ class Field(object):
         # считаем, что простое поле всегда валидно
         return value
 
-    @property
-    def error(self):
-        return self._error
-
 
 class CharField(Field):
     """Поле - строка"""
@@ -295,21 +291,8 @@ class BaseRequest(object):
 
 class ClientsInterestsRequest(BaseRequest):
     # массив интересов, из которого будем генерировать случайные сэмплы
-    _interests = ['python', 'perl', 'C', 'C++', 'C#', 'Pascal', 'Erlang', 'Lisp']
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
-
-    def process(self, request, ctx):
-        """Обрабатываем метод clients_interests"""
-        ctx['nclients'] = len(self.client_ids)
-        response = {}
-        for client in self.client_ids:
-            response[client] = self._gen_interests()
-        return response, OK
-
-    def _gen_interests(self):
-        """Генериуем фейковые интересы для клиентов"""
-        return random.sample(self._interests, 3)
 
 
 class OnlineScoreRequest(BaseRequest):
@@ -340,13 +323,6 @@ class OnlineScoreRequest(BaseRequest):
             return False
         return True
 
-    def process(self, request, ctx):
-        """Обработка метода online_score"""
-        ctx['has'] = list(self._get_non_empty_request_fields())
-        if request.is_admin:
-            return {'score': 42}, OK
-        return {'score': random.randrange(0, 10)}, OK
-
 
 class MethodRequest(BaseRequest):
     NOT_EXISTS = 'Method {} does not exists.'
@@ -359,6 +335,39 @@ class MethodRequest(BaseRequest):
     @property
     def is_admin(self):
         return self.login == ADMIN_LOGIN
+
+
+class ApiHandler(object):
+    def process(self, request, method_data, ctx):
+        return None, OK
+
+
+class ClientsInterestsHandler(ApiHandler):
+    request_cls = ClientsInterestsRequest
+    _interests = ['python', 'perl', 'C', 'C++', 'C#', 'Pascal', 'Erlang', 'Lisp']
+
+    def process(self, request, method_data, ctx):
+        """Обрабатываем метод clients_interests"""
+        ctx['nclients'] = len(method_data.client_ids)
+        response = {}
+        for client in method_data.client_ids:
+            response[client] = self._gen_interests()
+        return response, OK
+
+    def _gen_interests(self):
+        """Генериуем фейковые интересы для клиентов"""
+        return random.sample(self._interests, 3)
+
+
+class OnlineScoreHandler(ApiHandler):
+    request_cls = OnlineScoreRequest
+
+    def process(self, request, method_data, ctx):
+        """Обработка метода online_score"""
+        ctx['has'] = list(method_data._get_non_empty_request_fields())
+        if request.is_admin:
+            return {'score': 42}, OK
+        return {'score': random.randrange(0, 10)}, OK
 
 
 def check_auth(request):
@@ -375,9 +384,9 @@ def check_auth(request):
 
 def method_handler(request, ctx):
     # мэппинг метод-класс, отвечающих за обработку конкретных методов
-    method_cls = {
-        'online_score': OnlineScoreRequest,
-        'clients_interests': ClientsInterestsRequest
+    handler_cls = {
+        'online_score': OnlineScoreHandler,
+        'clients_interests': ClientsInterestsHandler
     }
     body = request['body']
     if not isinstance(body, collections.Mapping):
@@ -387,14 +396,14 @@ def method_handler(request, ctx):
         return join_errors(INVALID_REQUEST, request.errors)
     if not check_auth(request):
         return None, FORBIDDEN
-    arguments = request.arguments
-    method = method_cls.get(request.method)(**arguments)
-    if method is None:
+    handler = handler_cls.get(request.method)
+    if handler is None:
         return "Method Not Found", NOT_FOUND
-    if not method.is_valid():
+    arguments = request.arguments
+    method_data = handler.request_cls(**arguments)
+    if not method_data.is_valid():
         return join_errors(INVALID_REQUEST, request.errors)
-    response, code = method.process(request, ctx)
-    return response, code
+    return handler().process(request, method_data, ctx)
 
 
 def join_errors(error_code, errors):
