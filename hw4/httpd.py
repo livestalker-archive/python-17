@@ -5,12 +5,7 @@ import os
 import logging
 import socket
 
-import req
-import res
-
-
-# форматы
-# Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
+from otus import request as req
 
 
 class HTTPd(object):
@@ -37,15 +32,8 @@ class HTTPd(object):
             connection.close()
 
     def process(self, connection, request):
-        #TODO strip /
-        filename = os.path.join(self.doc_root, request.uri.strip('/'))
-        if os.path.exists(filename):
-            with open(filename, mode='rb') as f:
-                data = f.read()
-            response = res.create_response(request, filename, data)
-            self.send_response(connection, response)
-
-    def send_response(self, connection, response):
+        handler = req.RequestHandler(self.doc_root, request)
+        response = handler.process()
         connection.sendall(response.get_octets())
 
     def init_listen_socket(self):
