@@ -6,6 +6,7 @@ import logging
 import socket
 
 import req
+import res
 
 
 # форматы
@@ -31,8 +32,21 @@ class HTTPd(object):
         while True:
             connection, address = self.listen_socket.accept()
             logging.info('Client with address: %s connected.', address)
-            req.create_request(connection)
+            request = req.create_request(connection)
+            self.process(connection, request)
             connection.close()
+
+    def process(self, connection, request):
+        #TODO strip /
+        filename = os.path.join(self.doc_root, request.uri.strip('/'))
+        if os.path.exists(filename):
+            with open(filename, mode='rb') as f:
+                data = f.read()
+            response = res.create_response(request, filename, data)
+            self.send_response(connection, response)
+
+    def send_response(self, connection, response):
+        connection.sendall(response.get_octets())
 
     def init_listen_socket(self):
         ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
