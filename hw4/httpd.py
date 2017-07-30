@@ -27,11 +27,11 @@ class HTTPd(object):
         while True:
             connection, address = self.listen_socket.accept()
             logging.info('Client with address: %s connected.', address)
-            request = req.create_request(connection)
-            self.process(connection, request)
+            self.process(connection)
             connection.close()
 
-    def process(self, connection, request):
+    def process(self, connection):
+        request = req.create_request(connection)
         handler = req.RequestHandler(self.doc_root, request)
         response = handler.process()
         connection.sendall(response.get_octets())
@@ -59,7 +59,9 @@ if __name__ == '__main__':
     if not os.path.exists(args.doc_root):
         logging.error('Document root: {} does not exists.'.format(args.web_root))
 
-    httpd = HTTPd(host=args.host, port=args.port, doc_root=args.doc_root)
+    httpd = HTTPd(host=args.host,
+                  port=args.port,
+                  doc_root=os.path.realpath(args.doc_root))
     try:
         httpd.run_server()
     except KeyboardInterrupt:

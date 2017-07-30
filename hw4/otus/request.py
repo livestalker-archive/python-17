@@ -1,6 +1,6 @@
 import os
 from .response import Response
-from .utils import OK, NOT_ALLOWED, NOT_FOUND, get_content_type
+from .utils import OK, FORBIDDEN, BAD_REQUEST, NOT_ALLOWED, NOT_FOUND, get_content_type
 
 BUFFER_SIZE = 4096
 
@@ -16,20 +16,26 @@ class Request(object):
         self.uri = uri
         self.version = version
         self.headers = headers
+        self.valid = False
 
     @staticmethod
     def parse(data):
         lines = data.splitlines()
-        # TODO IndexError
-        request_line = lines[0]
-        method, uri, version = Request._parse_request_line(request_line)
-        headers = {}
-        for line in lines[1:]:
-            if not line:
-                break
-            k, v = Request._parse_header(line)
-            headers[k] = v
-        return Request(method, uri, version, headers)
+        # TODO error
+        try:
+            request_line = lines[0]
+            method, uri, version = Request._parse_request_line(request_line)
+            headers = {}
+            for line in lines[1:]:
+                if not line:
+                    break
+                k, v = Request._parse_header(line)
+                headers[k] = v
+            request = Request(method, uri, version, headers)
+            request.valid = True
+        except:
+            request = Request(None, None, None, None)
+        return request
 
     @staticmethod
     def _parse_request_line(line):
@@ -51,25 +57,37 @@ class RequestHandler(object):
     def __init__(self, doc_root, request):
         self.request = request
         self.doc_root = doc_root
-        self.filename = self._get_filename()
+        self.filename = None
 
     def process(self):
+        if not self.request.valid:
+            return Response(None, BAD_REQUEST)
         if not self.is_method_allowed():
-            return Response(self.request.version, NOT_ALLOWED)
-        if not self.is_file_exists():
-            return Response(self.request.version, NOT_FOUND)
+            return Response(self.request.method, NOT_ALLOWED)
+        code = self._check_resource()
+        if code != OK:
+            return Response(self.request.method, code)
         data = self._read_file()
-        response = Response(self.request.version, OK)
+        response = Response(self.request.method, code)
         response.set_content_type(self._get_content_type())
         response.set_data(data)
         return response
 
-    def _get_filename(self):
-        # Improve security
-        filename = os.path.join(self.doc_root, self.request.uri.strip('/'))
+    def _check_resource(self):
+        file_path = self.request.uri.split('?')[0].strip('/')
+        filename = os.path.realpath(os.path.join(self.doc_root, file_path))
+        longest_prefix = os.path.commonprefix([self.doc_root, filename])
+        if longest_prefix != self.doc_root:
+            return FORBIDDEN
         if os.path.isdir(filename):
             filename = os.path.join(filename, self.INDEX)
-        return filename
+            possible_error = FORBIDDEN
+        else:
+            possible_error = NOT_FOUND
+        if not os.path.exists(filename):
+            return possible_error
+        self.filename = filename
+        return OK
 
     def _get_content_type(self):
         return get_content_type(self.filename)

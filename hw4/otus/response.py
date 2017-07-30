@@ -3,8 +3,9 @@ from .utils import CRLF, STATUS_CODES
 
 
 class Response(object):
-    def __init__(self, version, code):
-        self.version = version
+    def __init__(self, method, code):
+        self.version = 'HTTP/1.1'
+        self.method = method
         self.code = code
         self.headers = {}
         self._general_header()
@@ -21,10 +22,15 @@ class Response(object):
         self.headers['Content-Type'] = ct
 
     def get_octets(self):
-        return '{}{}{}{}'.format(self._get_status_line(),
-                                 self._get_headers(),
-                                 2 * CRLF,
-                                 self.data)
+        if self.method == 'GET':
+            return '{}{}{}{}'.format(self._get_status_line(),
+                                     self._get_headers(),
+                                     2 * CRLF,
+                                     self.data)
+        else:
+            return '{}{}{}'.format(self._get_status_line(),
+                                   self._get_headers(),
+                                   2 * CRLF)
 
     def _create_date(self):
         # TODO check format

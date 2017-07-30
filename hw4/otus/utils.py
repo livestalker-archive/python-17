@@ -2,11 +2,15 @@ import os
 
 # supported status codes
 OK = 200
+BAD_REQUEST = 400
+FORBIDDEN = 403
 NOT_FOUND = 404
 NOT_ALLOWED = 405
 
 STATUS_CODES = {
     OK: 'OK',
+    FORBIDDEN: 'Forbidden',
+    BAD_REQUEST: 'Bad Request',
     NOT_FOUND: 'Not Found',
     NOT_ALLOWED: 'Method Not Allowed'
 }
