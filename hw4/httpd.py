@@ -32,7 +32,6 @@ class HTTPd(object):
     def run_server(self):
         """Run server"""
         self.init_listen_socket()
-        self._run_workers()
         self.listening_loop()
 
     def stop_server(self):
@@ -65,15 +64,11 @@ class HTTPd(object):
         ls.bind((self.host, self.port))
         ls.listen(1)
         self.listen_socket = ls
-        logging.info('Init listenning socket.')
+        logging.info('Init listening socket.')
 
     def worker_loop(self):
         print os.getpid()
         pass
-
-    def _run_workers(self):
-        workers = [P(target=self.worker_loop) for _ in range(self.workers_count)]
-        map(lambda x: x.start(), workers)
 
     @staticmethod
     def _access_log_message(request, response, bytes_sent):
@@ -81,6 +76,16 @@ class HTTPd(object):
         return '{} {} {}'.format(request.uri,
                                  response.code,
                                  bytes_sent)
+
+
+def test():
+    print os.getpid()
+    pass
+
+
+def _run_workers():
+    workers = [P(target=test) for _ in range(3)]
+    map(lambda x: x.start(), workers)
 
 
 if __name__ == '__main__':
@@ -101,6 +106,7 @@ if __name__ == '__main__':
                   doc_root=os.path.realpath(args.doc_root),
                   workers_count=args.workers_count)
     try:
+        _run_workers()
         httpd.run_server()
     except KeyboardInterrupt:
         httpd.stop_server()
