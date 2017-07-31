@@ -9,6 +9,7 @@ from otus import request as req
 
 
 class HTTPd(object):
+    """Web Server"""
     def __init__(self, **kwargs):
         self.host = kwargs['host']
         self.port = kwargs['port']
@@ -16,6 +17,7 @@ class HTTPd(object):
         self.listen_socket = None
 
     def run_server(self):
+        """Run server"""
         self.init_listen_socket()
         self.listening_loop()
 
@@ -23,6 +25,7 @@ class HTTPd(object):
         self.listen_socket.close()
 
     def listening_loop(self):
+        """Listening loop"""
         logging.info('Start listening loop.')
         while True:
             connection, address = self.listen_socket.accept()
@@ -31,12 +34,14 @@ class HTTPd(object):
             connection.close()
 
     def process(self, connection):
+        """Process connection."""
         request = req.create_request(connection)
         handler = req.RequestHandler(self.doc_root, request)
         response = handler.process()
         connection.sendall(response.get_octets())
 
     def init_listen_socket(self):
+        """Init listening socket."""
         ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # доступные опции можно посмотреть man 7 socket
         ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
