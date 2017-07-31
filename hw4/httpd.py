@@ -10,6 +10,7 @@ from otus import request as req
 
 class HTTPd(object):
     """Web Server"""
+
     def __init__(self, **kwargs):
         self.host = kwargs['host']
         self.port = kwargs['port']
@@ -29,7 +30,7 @@ class HTTPd(object):
         logging.info('Start listening loop.')
         while True:
             connection, address = self.listen_socket.accept()
-            logging.info('Client with address: %s connected.', address)
+            logging.debug('Client with address: %s connected.', address)
             self.process(connection)
             connection.close()
 
@@ -38,17 +39,26 @@ class HTTPd(object):
         request = req.create_request(connection)
         handler = req.RequestHandler(self.doc_root, request)
         response = handler.process()
-        connection.sendall(response.get_octets())
+        octets = response.get_octets()
+        connection.sendall(octets)
+        logging.info(self._access_log_message(request, response, len(octets)))
 
     def init_listen_socket(self):
         """Init listening socket."""
         ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # доступные опции можно посмотреть man 7 socket
+        # man 7 socket
         ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         ls.bind((self.host, self.port))
         ls.listen(1)
         self.listen_socket = ls
         logging.info('Init listenning socket.')
+
+    @staticmethod
+    def _access_log_message(request, response, bytes_sent):
+        """Create access log message."""
+        return '{} {} {}'.format(request.uri,
+                                 response.code,
+                                 bytes_sent)
 
 
 if __name__ == '__main__':

@@ -15,6 +15,7 @@ def create_request(sock):
 
 class Request(object):
     """Request object represent parsed raw HTTP request."""
+
     def __init__(self, method, uri, version, headers):
         self.method = method
         self.uri = uri
