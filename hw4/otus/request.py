@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import os
+import urllib
 from .response import Response
 from .utils import OK, FORBIDDEN, BAD_REQUEST, NOT_ALLOWED, NOT_FOUND, get_content_type
 
@@ -75,6 +77,7 @@ class RequestHandler(object):
 
     def _check_resource(self):
         file_path = self.request.uri.split('?')[0].strip('/')
+        file_path = urllib.unquote(file_path).decode('utf-8')
         filename = os.path.realpath(os.path.join(self.doc_root, file_path))
         longest_prefix = os.path.commonprefix([self.doc_root, filename])
         if longest_prefix != self.doc_root:

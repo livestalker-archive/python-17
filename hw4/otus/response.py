@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from time import strftime, gmtime
 from .utils import CRLF, STATUS_CODES
 
