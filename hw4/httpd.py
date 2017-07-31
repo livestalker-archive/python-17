@@ -4,6 +4,7 @@ import argparse
 import os
 import logging
 import socket
+from multiprocessing import Process, log_to_stderr
 
 from otus import request as req
 
@@ -64,7 +65,7 @@ class HTTPd(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Web server')
     parser.add_argument('-r', required=True, dest='doc_root', help='Document root')
-    parser.add_argument('-w', default=1, dest='workers', help='Worker count')
+    parser.add_argument('-w', default=1, dest='workers_count', help='Worker count')
     parser.add_argument('-a', default='localhost', dest='host', help='Web server bind address')
     parser.add_argument('-p', default=8080, dest='port', help='Web server port')
     args = parser.parse_args()
