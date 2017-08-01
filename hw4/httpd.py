@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import argparse
+import time
 import os
 import logging
 import socket
@@ -10,45 +11,45 @@ import Queue
 from otus import request as req
 
 
-class HTTPd(object):
+class HTTPd(threading.Thread):
     """Web Server"""
 
-    def __init__(self, **kwargs):
-        self.host = kwargs['host']
-        self.port = kwargs['port']
-        self.doc_root = kwargs['doc_root']
-        self.workers_count = kwargs['workers_count']
-        self.listen_socket = None
+    def __init__(self, host, port, doc_root, workers_count, **kwargs):
+        super(HTTPd, self).__init__(**kwargs)
+        self.host = host
+        self.port = port
+        self.doc_root = doc_root
+        self.workers_count = workers_count
         self.q = Queue.Queue()
+        self.listen_socket = None
         self.workers = []
+        self._stop_signal = threading.Event()
 
-    def run_server(self):
+    def run(self):
+        """Run thread."""
+        self._run_server()
+
+    def _run_server(self):
         """Run server"""
         self.init_listen_socket()
         self._run_workers()
         self.listening_loop()
 
     def stop_server(self):
+        """Stop Web server."""
+        self._stop_signal.set()
         self.listen_socket.close()
+        for w in self.workers:
+            w.stop()
+            w.join()
 
     def listening_loop(self):
         """Listening loop"""
         logging.info('Start listening loop.')
-        while True:
+        while not self._stop_signal.is_set():
             connection, address = self.listen_socket.accept()
             logging.debug('Client with address: %s connected.', address)
-            # self.process(connection)
             self.q.put(connection)
-            # connection.close()
-
-    def process(self, connection):
-        """Process connection."""
-        request = req.create_request(connection)
-        handler = req.RequestHandler(self.doc_root, request)
-        response = handler.process()
-        octets = response.get_octets()
-        connection.sendall(octets)
-        logging.info(self._access_log_message(request, response, len(octets)))
 
     def init_listen_socket(self):
         """Init listening socket."""
@@ -61,23 +62,21 @@ class HTTPd(object):
         logging.info('Init listening socket.')
 
     def _run_workers(self):
-        for _ in range(self.workers_count):
-            w = Worker(self.q, self.doc_root)
+        """Create and run workers."""
+        for i in range(self.workers_count):
+            w = Worker(self.q, self.doc_root, name='WebServer worker#{}'.format(i))
             w.start()
             self.workers.append(w)
 
-    @staticmethod
-    def _access_log_message(request, response, bytes_sent):
-        """Create access log message."""
-        return '{} {} {}'.format(request.uri,
-                                 response.code,
-                                 bytes_sent)
-
 
 class Worker(threading.Thread):
+    # Queue.get timeout in seconds
+    Q_TIMEOUT = 5
+
     def __init__(self, q, doc_root, **kwargs):
         super(Worker, self).__init__(**kwargs)
         self.q = q
+        self._stop_event = threading.Event()
         self.doc_root = doc_root
 
     def process(self, connection):
@@ -87,15 +86,31 @@ class Worker(threading.Thread):
         response = handler.process()
         octets = response.get_octets()
         connection.sendall(octets)
-        #logging.info(self._access_log_message(request, response, len(octets)))
+        logging.info(self._access_log_message(request, response, len(octets)))
 
     def run(self):
-        while True:
-            print self.getName()
-            c = self.q.get()
-            print c, self.getName()
-            self.process(c)
-            c.close()
+        """Main loop of worker."""
+        logging.info('%s started.', self.name)
+        while not self._stop_event.is_set():
+            try:
+                c = self.q.get(True, self.Q_TIMEOUT)
+                self.process(c)
+                c.close()
+            except Queue.Empty:
+                # run loop again, no data in queue
+                pass
+        logging.info('%s stop.', self.name)
+
+    def stop(self):
+        """Set flag for stopping worker loop."""
+        self._stop_event.set()
+
+    @staticmethod
+    def _access_log_message(request, response, bytes_sent):
+        """Create access log message."""
+        return '{} {} {}'.format(request.uri,
+                                 response.code,
+                                 bytes_sent)
 
 
 if __name__ == '__main__':
@@ -111,11 +126,13 @@ if __name__ == '__main__':
     if not os.path.exists(args.doc_root):
         logging.error('Document root: {} does not exists.'.format(args.web_root))
 
-    httpd = HTTPd(host=args.host,
-                  port=args.port,
-                  doc_root=os.path.realpath(args.doc_root),
-                  workers_count=args.workers_count)
+    httpd = HTTPd(args.host,
+                  args.port,
+                  os.path.realpath(args.doc_root),
+                  args.workers_count)
+    httpd.start()
     try:
-        httpd.run_server()
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         httpd.stop_server()
