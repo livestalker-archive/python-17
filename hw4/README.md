@@ -76,6 +76,20 @@ optional arguments:
                         Log level
 ```
 
+### Тестовый стенд
+
+Виртуальная машина. Выделено одно ядро процессора E5-2650 v2.
+
+```
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 62
+model name      : Intel(R) Xeon(R) CPU E5-2650 v2 @ 2.60GHz
+...
+```
+
+
 ### Однопоточный (tag: [single_thread](https://github.com/LiveStalker/python-17/tree/single_thread))
 
 ```bash
@@ -121,7 +135,7 @@ Percentage of the requests served within a certain time (ms)
  100%  106672 (longest request)
 ```
 
-### Сервер с использованием threading.Thread
+### Сервер с использованием threading.Thread (1 воркер)
 
 ```bash
 ab -n 50000 -c 100 -r -s 60 http://127.0.0.1:8080/test.html
