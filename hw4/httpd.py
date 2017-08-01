@@ -118,9 +118,10 @@ if __name__ == '__main__':
     parser.add_argument('-r', required=True, dest='doc_root', help='Document root')
     parser.add_argument('-w', default=1, type=int, dest='workers_count', help='Worker count')
     parser.add_argument('-a', default='localhost', dest='host', help='Web server bind address')
-    parser.add_argument('-p', default=8080, dest='port', help='Web server port')
+    parser.add_argument('-p', default=8080, type=int, dest='port', help='Web server port')
+    parser.add_argument('-l', default='WARN', dest='log_level', help='Log level', choices=['DEBUG', 'INFO', 'WARN', 'ERROR'])
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=getattr(logging, args.log_level, logging.WARN),
                         format='[%(asctime)s] %(levelname).1s %(message)s',
                         datefmt='%Y.%m.%d %H:%M:%S')
     if not os.path.exists(args.doc_root):
