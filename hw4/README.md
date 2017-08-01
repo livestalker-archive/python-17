@@ -121,7 +121,7 @@ Percentage of the requests served within a certain time (ms)
  100%  106672 (longest request)
 ```
 
-###Сервер с использованием threading.Thread
+### Сервер с использованием threading.Thread
 
 ```bash
 ab -n 50000 -c 100 -r -s 60 http://127.0.0.1:8080/test.html
