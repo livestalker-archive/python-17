@@ -54,69 +54,113 @@
 
 ## Результаты
 
-### Однопоточный без использования неблокирующих сокетов
+### Архитектура
+
+ThreadPool с N воркерами.
+
+### Параметры сервера
 
 ```
-ab -n 50000 -c 100 -r -s 60 http://localhost:8080/
+usage: httpd.py [-h] -r DOC_ROOT [-w WORKERS_COUNT] [-a HOST] [-p PORT]
+                [-l {DEBUG,INFO,WARN,ERROR}]
+
+Web server
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r DOC_ROOT           Document root
+  -w WORKERS_COUNT      Worker count
+  -a HOST               Web server bind address
+  -p PORT               Web server port
+  -l {DEBUG,INFO,WARN,ERROR}
+                        Log level
 ```
 
-> Дополнительно выставил параметр -s (timeout), по умолчанию он равен 30 секунд, в данной
-  версии сервер не укладывался в 30 секунд и сокет отваливался по таймауту.
-  
+### Однопоточный (tag: [single_thread](https://github.com/LiveStalker/python-17/tree/single_thread))
+
+```bash
+ab -n 50000 -c 100 -r -s 60 http://127.0.0.1:8080/test.html
 ```
-This is ApacheBench, Version 2.3 <$Revision: 1706008 $>
-Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
-Licensed to The Apache Software Foundation, http://www.apache.org/
 
-Benchmarking localhost (be patient)
-Completed 5000 requests
-Completed 10000 requests
-Completed 15000 requests
-Completed 20000 requests
-Completed 25000 requests
-Completed 30000 requests
-Completed 35000 requests
-Completed 40000 requests
-Completed 45000 requests
-Completed 50000 requests
-Finished 50000 requests
-
-
+```
 Server Software:        OTUS
-Server Hostname:        localhost
+Server Hostname:        127.0.0.1
 Server Port:            8080
 
-Document Path:          /
-Document Length:        4 bytes
+Document Path:          /test.html
+Document Length:        85 bytes
 
 Concurrency Level:      100
-Time taken for tests:   81.230 seconds
+Time taken for tests:   110.693 seconds
 Complete requests:      50000
-Failed requests:        255
-   (Connect: 0, Receive: 85, Length: 85, Exceptions: 85)
-Non-2xx responses:      49915
-Total transferred:      5640395 bytes
-HTML transferred:       199660 bytes
-Requests per second:    615.54 [#/sec] (mean)
-Time per request:       162.460 [ms] (mean)
-Time per request:       1.625 [ms] (mean, across all concurrent requests)
-Transfer rate:          67.81 [Kbytes/sec] received
+Failed requests:        270
+   (Connect: 0, Receive: 90, Length: 90, Exceptions: 90)
+Total transferred:      11479300 bytes
+HTML transferred:       4242350 bytes
+Requests per second:    451.70 [#/sec] (mean)
+Time per request:       221.386 [ms] (mean)
+Time per request:       2.214 [ms] (mean, across all concurrent requests)
+Transfer rate:          101.27 [Kbytes/sec] received
 
 Connection Times (ms)
               min  mean[+/-sd] median   max
-Connect:        0    0   7.7      0    1001
-Processing:     0  144 3364.4      0   81228
-Waiting:        0    6 351.4      0   40396
-Total:          0  144 3364.7      0   81229
+Connect:        0   10 311.0      0   31048
+Processing:     0   20 669.4      1  106672
+Waiting:        0    7 208.9      1   13088
+Total:          0   30 783.2      1  106672
 
 Percentage of the requests served within a certain time (ms)
-  50%      0
-  66%      0
-  75%      0
-  80%      0
-  90%      0
-  95%      0
-  98%      0
-  99%      0
- 100%  81229 (longest request)
+  50%      1
+  66%      1
+  75%      1
+  80%      1
+  90%      1
+  95%      1
+  98%      1
+  99%      1
+ 100%  106672 (longest request)
+```
+
+###Сервер с использованием threading.Thread
+
+```bash
+ab -n 50000 -c 100 -r -s 60 http://127.0.0.1:8080/test.html
+```
+
+```
+Server Software:        OTUS
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /test.html
+Document Length:        85 bytes
+
+Concurrency Level:      100
+Time taken for tests:   18.588 seconds
+Complete requests:      50000
+Failed requests:        0
+Total transferred:      11500000 bytes
+HTML transferred:       4250000 bytes
+Requests per second:    2689.90 [#/sec] (mean)
+Time per request:       37.176 [ms] (mean)
+Time per request:       0.372 [ms] (mean, across all concurrent requests)
+Transfer rate:          604.18 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0  11.0      0    1000
+Processing:    16   37   3.8     36     436
+Waiting:       16   37   3.8     36     436
+Total:         28   37  12.9     37    1435
+
+Percentage of the requests served within a certain time (ms)
+  50%     37
+  66%     37
+  75%     37
+  80%     37
+  90%     38
+  95%     39
+  98%     47
+  99%     54
+ 100%   1435 (longest request)
 ```
