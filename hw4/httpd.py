@@ -4,17 +4,10 @@ import argparse
 import os
 import logging
 import socket
-import StringIO
-from multiprocessing import Process as P, Queue as Q
-from multiprocessing.reduction import ForkingPickler
+import threading
+import Queue
 
 from otus import request as req
-
-
-def forking_dumps(obj):
-    buf = StringIO.StringIO()
-    ForkingPickler(buf).dump(obj)
-    return buf.getvalue()
 
 
 class HTTPd(object):
@@ -26,12 +19,13 @@ class HTTPd(object):
         self.doc_root = kwargs['doc_root']
         self.workers_count = kwargs['workers_count']
         self.listen_socket = None
-        self.clients = Q()
-        self.workers = None
+        self.q = Queue.Queue()
+        self.workers = []
 
     def run_server(self):
         """Run server"""
         self.init_listen_socket()
+        self._run_workers()
         self.listening_loop()
 
     def stop_server(self):
@@ -43,9 +37,9 @@ class HTTPd(object):
         while True:
             connection, address = self.listen_socket.accept()
             logging.debug('Client with address: %s connected.', address)
-            self.clients.put(forking_dumps(connection))
-            self.process(connection)
-            connection.close()
+            # self.process(connection)
+            self.q.put(connection)
+            # connection.close()
 
     def process(self, connection):
         """Process connection."""
@@ -66,9 +60,11 @@ class HTTPd(object):
         self.listen_socket = ls
         logging.info('Init listening socket.')
 
-    def worker_loop(self):
-        print os.getpid()
-        pass
+    def _run_workers(self):
+        for _ in range(self.workers_count):
+            w = Worker(self.q, self.doc_root)
+            w.start()
+            self.workers.append(w)
 
     @staticmethod
     def _access_log_message(request, response, bytes_sent):
@@ -78,20 +74,34 @@ class HTTPd(object):
                                  bytes_sent)
 
 
-def test():
-    print os.getpid()
-    pass
+class Worker(threading.Thread):
+    def __init__(self, q, doc_root, **kwargs):
+        super(Worker, self).__init__(**kwargs)
+        self.q = q
+        self.doc_root = doc_root
 
+    def process(self, connection):
+        """Process connection."""
+        request = req.create_request(connection)
+        handler = req.RequestHandler(self.doc_root, request)
+        response = handler.process()
+        octets = response.get_octets()
+        connection.sendall(octets)
+        #logging.info(self._access_log_message(request, response, len(octets)))
 
-def _run_workers():
-    workers = [P(target=test) for _ in range(3)]
-    map(lambda x: x.start(), workers)
+    def run(self):
+        while True:
+            print self.getName()
+            c = self.q.get()
+            print c, self.getName()
+            self.process(c)
+            c.close()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Web server')
     parser.add_argument('-r', required=True, dest='doc_root', help='Document root')
-    parser.add_argument('-w', default=1, dest='workers_count', help='Worker count')
+    parser.add_argument('-w', default=1, type=int, dest='workers_count', help='Worker count')
     parser.add_argument('-a', default='localhost', dest='host', help='Web server bind address')
     parser.add_argument('-p', default=8080, dest='port', help='Web server port')
     args = parser.parse_args()
@@ -106,7 +116,6 @@ if __name__ == '__main__':
                   doc_root=os.path.realpath(args.doc_root),
                   workers_count=args.workers_count)
     try:
-        _run_workers()
         httpd.run_server()
     except KeyboardInterrupt:
         httpd.stop_server()
