@@ -39,6 +39,11 @@ class HTTPd(threading.Thread):
         """Stop Web server."""
         self._stop_signal.set()
         self.listen_socket.close()
+        # if listen socket blocked in accept we can connect to it and close
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10)
+        s.connect((self.host, self.port))
+        s.close()
         for w in self.workers:
             w.stop()
             w.join()
