@@ -60,9 +60,9 @@ class HTTPd(threading.Thread):
         """Init listening socket."""
         ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # man 7 socket
-        ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         ls.bind((self.host, self.port))
-        ls.listen(1)
+        # /proc/sys/net/core/somaxconn
+        ls.listen(128)
         self.listen_socket = ls
         logging.info('Init listening socket.')
 
