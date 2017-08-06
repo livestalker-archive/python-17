@@ -58,7 +58,7 @@ def service_response(ip_info, weather_info):
     return result
 
 
-def weather_app(environ, start_response):
+def application(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'application/json; charset=utf-8')]
 
@@ -69,6 +69,6 @@ def weather_app(environ, start_response):
 
 
 if __name__ == '__main__':
-    httpd = make_server('localhost', 8080, weather_app)
+    httpd = make_server('localhost', 8080, application)
     print 'Start weather server...'
     httpd.serve_forever()
