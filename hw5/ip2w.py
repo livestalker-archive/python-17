@@ -9,7 +9,7 @@ OWM = 'http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&lang={
 
 def handle(ip):
     ip_info = get_ip_info(ip)
-    app_id = os.environ.get('APPID')
+    app_id = os.environ.get('APPID', '94673c1dddb4a63971e88307d23c7585')
     lat, lon = parse_loc(ip_info)
     weather_info = get_weather(lat, lon, 'ru', app_id)
     return service_response(ip_info, weather_info)

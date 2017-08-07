@@ -1,0 +1,12 @@
+FROM centos
+
+WORKDIR /root
+
+RUN yum clean all
+RUN yum install -y\
+    vim \
+    less \
+    git \
+    rpm-build \
+    redhat-rpm-config
+

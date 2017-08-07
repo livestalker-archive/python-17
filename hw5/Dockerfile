@@ -25,7 +25,7 @@ RUN mkdir -p /usr/local/etc/
 COPY weather.ini /usr/local/etc/
 
 # copy systemd config
-COPY weather.service /etc/systemd/system/
+COPY ip2w.service /etc/systemd/system/
 
 # enable services
 RUN systemctl enable nginx.service
