@@ -1,0 +1,13 @@
+[Unit]
+Description=weather service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/uwsgi /usr/local/etc/weather.ini
+Restart=always
+User=root
+PIDFile=/var/run/weather.pid
+
+[Install]
+WantedBy=multi-user.target
