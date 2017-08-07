@@ -13,7 +13,8 @@ Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
-#Requires:
+Requires(pre): /usr/sbin/useradd, /usr/bin/getent
+Requires(postun): /usr/sbin/userdel
 Summary:  ...
 
 
@@ -32,6 +33,10 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 %prep
 %setup -n otus-%{current_datetime}
 
+%pre
+getent passwd ip2w > /dev/null || useradd -r -d  %{__bindir} -s /sbin/nologin ip2w
+exit 0
+
 %install
 [ "%{buildroot}" != "/" ] && rm -fr %{buildroot}
 # create directories
@@ -40,7 +45,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 %{__mkdir} -p %{buildroot}/%{__bindir}
 %{__mkdir} -p %{buildroot}/%{__systemddir}
 
-%{__install} -pD -m 644 %{_builddir}/otus-%{current_datetime}/%{name}.ini %{buildroot}/%{__etcdir}/%{name}.ini
+%{__install} -pD -m 644 %{name}.ini %{buildroot}/%{__etcdir}/%{name}.ini
 %{__install} -pD -m 644 %{name}.py %{buildroot}/%{__bindir}/%{name}.py
 %{__install} -pD -m 644 %{name}.service %{buildroot}/%{__systemddir}/%{name}.service
 
@@ -59,7 +64,8 @@ systemctl daemon-reload
 
 
 %files
-%{__logdir}
-%{__bindir}
-%{__systemddir}
-%{__sysconfigdir}
+%{__etcdir}/*
+%{__bindir}/*
+%{__systemddir}/*
+
+#cd hw5 && chown root:root ip2w.spec && ./buildrpm.sh ip2w.spec && chown 1000:1000 ip2w.spec && cp /root/rpm/RPMS/noarch/ip2w-0.0.1-1.noarch.rpm . && chown 1000:1000 ip2w-0.0.1-1.noarch.rpm
