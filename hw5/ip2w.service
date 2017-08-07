@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/uwsgi /usr/local/etc/weather.ini
+ExecStart=/usr/bin/uwsgi /usr/local/etc/ip2w.ini
 Restart=always
 User=root
 PIDFile=/var/run/weather.pid

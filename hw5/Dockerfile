@@ -20,18 +20,11 @@ RUN pip install uwsgi
 RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx_weather.conf /etc/nginx/conf.d/nginx_weather.conf
 
-# create config directory
-RUN mkdir -p /usr/local/etc/
-COPY weather.ini /usr/local/etc/
-
-# copy systemd config
-COPY ip2w.service /etc/systemd/system/
+COPY 'ip2w-0.0.1-1.noarch.rpm' /tmp/
+RUN rpm -i /tmp/ip2w-0.0.1-1.noarch.rpm
 
 # enable services
 RUN systemctl enable nginx.service
-RUN systemctl enable weather.service
-
-# copy application script
-COPY weather.py /var/www/
+RUN systemctl enable ip2w.service
 
 CMD ["/usr/sbin/init"]
