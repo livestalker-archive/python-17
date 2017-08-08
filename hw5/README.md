@@ -74,4 +74,17 @@ exit
 
 ```bash
 ./env_prod.sh # собираем образ
+./run_prod_cont.sh # запускаем контейнер
+
+# внутри контейнера
+ps aux
+
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root         1  0.0  0.2  42712  4568 ?        Ss   08:01   0:00 /usr/sbin/init
+root        17  0.0  0.1  36828  3744 ?        Ss   08:01   0:00 /usr/lib/systemd/systemd-journald
+ip2w        19  0.1  0.7 179548 14824 ?        Ssl  08:01   0:00 /usr/bin/uwsgi /usr/local/etc/ip2w.ini
+root        22  0.0  0.0  45812   952 ?        Ss   08:01   0:00 nginx: master process /usr/sbin/nginx -c /etc/nginx/nginx.conf
+nginx       23  0.0  0.1  46196  3488 ?        S    08:01   0:00 nginx: worker process
+root        24  0.0  0.1  11776  3004 ?        Ss   08:01   0:00 /bin/bash
+root        40  0.0  0.1  47448  3280 ?        R+   08:02   0:00 ps aux
 ```
