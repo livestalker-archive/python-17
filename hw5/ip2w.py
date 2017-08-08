@@ -42,11 +42,9 @@ def get_weather(lat, lon, lang, app_id):
         res = urllib2.urlopen(req, None, 5)
         return json.loads(res.read())
     except urllib2.URLError as e:
-        # TODO re-raise
-        pass
+        raise RequestException('External service error.')
     except ValueError as e:
-        # TODO re-raise
-        pass
+        raise RequestException('External service format error.')
 
 
 def get_ip_info(ip):
