@@ -17,6 +17,9 @@ def handle(ip):
     if not is_ip_valid(ip):
         raise RequestException('IP address {} format error.'.format(ip))
     ip_info = get_ip_info(ip)
+    bogon = ip_info.get('bogon', False)
+    if bogon:
+        raise RequestException('Requested ip is bogon.')
     app_id = os.environ.get('APPID', '94673c1dddb4a63971e88307d23c7585')
     lat, lon = parse_loc(ip_info)
     weather_info = get_weather(lat, lon, 'ru', app_id)
@@ -75,16 +78,20 @@ def service_response(ip_info, weather_info):
     return result
 
 
+def gen_400(message):
+    status = '400 Bad Request'
+    json_result = {
+        'error': message
+    }
+    return status, json.dumps(json_result, ensure_ascii=False).encode('utf-8')
+
+
 def application(environ, start_response):
     location = 'ip2w'
 
     url = request_uri(environ).rstrip('/')
     if location not in url:
-        status = '400 Bad Request'
-        json_result = {
-            'error': 'Location does not supported.'
-        }
-        response = json.dumps(json_result, ensure_ascii=False).encode('utf-8')
+        status, response = gen_400('Location does not supported.')
     else:
         try:
             status = '200 OK'
@@ -92,11 +99,7 @@ def application(environ, start_response):
             json_result = handle(ip)
             response = json.dumps(json_result, ensure_ascii=False).encode('utf-8')
         except RequestException as e:
-            status = '400 Bad Request'
-            json_result = {
-                'error': e.message
-            }
-            response = json.dumps(json_result, ensure_ascii=False).encode('utf-8')
+            status, response = gen_400(e.message)
 
     headers = [
         ('Content-type', 'application/json; charset=utf-8'),
