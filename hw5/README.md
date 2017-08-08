@@ -39,3 +39,11 @@
 | run_build_cont.sh | запустить контейнер для сборки |
 | run_prod_cont.sh | запустить контейнер для тестирования |
 | ip2w-0.0.1-1.noarch.rpm | rpm пакет |
+
+### Сборка
+
+```bash
+git clone https://github.com/LiveStalker/python-17.git
+cd python-17/hw5/
+chmod u+x env_build.sh env_prod.sh run_build_cont.sh run_prod_cont.sh buildrpm.sh
+```
