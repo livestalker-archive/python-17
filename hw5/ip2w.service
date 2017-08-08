@@ -1,5 +1,5 @@
 [Unit]
-Description=weather service
+Description=IP to weather (ip2w) service
 After=network.target
 
 [Service]
@@ -7,7 +7,7 @@ Type=simple
 ExecStart=/usr/bin/uwsgi /usr/local/etc/ip2w.ini
 Restart=always
 User=root
-PIDFile=/var/run/weather.pid
+PIDFile=/var/run/ip2w.pid
 
 [Install]
 WantedBy=multi-user.target
