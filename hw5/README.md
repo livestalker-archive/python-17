@@ -42,8 +42,26 @@
 
 ### Сборка
 
+Собраный пакет уже в репозитории. Процедура сборки приведена для справки.
+
 ```bash
 git clone https://github.com/LiveStalker/python-17.git
 cd python-17/hw5/
 chmod u+x env_build.sh env_prod.sh run_build_cont.sh run_prod_cont.sh buildrpm.sh
+./env_build.sh      # собираем образ
+./run_build_cont.sh # запускаем контейнер для сборки пакета
+
+# внутри контейнера
+cd hw5
+# может понадобиться, если для гита не установлены данные параметры
+git config --local user.name <name> 
+git config --local user.email <email>
+# может понадобиться, иначе ошибка Bad owner/group: /root/hw5/ip2w.spec
+chown root:root ip2w.spec 
+# собираем пакет
+./buildrpm.sh ip2w.spec
+ls -l
+...
+-rw-r--r-- 1 1000 1000 5840 Aug  8 07:36 ip2w-0.0.1-1.noarch.rpm
+...
 ```
