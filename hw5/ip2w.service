@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/uwsgi /usr/local/etc/ip2w.ini
 Restart=always
-User=root
+User=ip2w
 PIDFile=/var/run/ip2w.pid
 
 [Install]
