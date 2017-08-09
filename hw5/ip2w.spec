@@ -26,7 +26,7 @@ Git version: %{git_version} (branch: %{git_branch})
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 %define __etcdir    /usr/local/etc
-%define __logdir    /var/log/
+%define __logdir    /var/log/ip2w/
 %define __bindir    /usr/local/ip2w/
 %define __systemddir	/usr/lib/systemd/system/
 
@@ -67,5 +67,6 @@ systemctl daemon-reload
 %{__etcdir}/*
 %{__bindir}/*
 %{__systemddir}/*
+%dir %attr(0755, ip2w, ip2w) %{__logdir}
 
 #cd hw5 && chown root:root ip2w.spec && ./buildrpm.sh ip2w.spec && chown 1000:1000 ip2w.spec && cp /root/rpm/RPMS/noarch/ip2w-0.0.1-1.noarch.rpm . && chown 1000:1000 ip2w-0.0.1-1.noarch.rpm
