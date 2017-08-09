@@ -70,6 +70,19 @@ exit
 
 Контейнер автоматически уничтожается при выходе.
 
+Просмотр содержимого rpm пакета
+
+```bash
+rpm -qlpv ip2w-0.0.1-1.noarch.rpm
+
+-rw-r--r--    1 root    root                      229 Aug  9 06:25 /usr/lib/systemd/system/ip2w.service
+-rw-r--r--    1 root    root                      186 Aug  9 06:25 /usr/local/etc/ip2w.ini
+-rw-r--r--    1 root    root                     3371 Aug  9 06:25 /usr/local/ip2w/ip2w.py
+-rw-r--r--    2 root    root                     4447 Aug  9 06:26 /usr/local/ip2w/ip2w.pyc
+-rw-r--r--    2 root    root                     4447 Aug  9 06:26 /usr/local/ip2w/ip2w.pyo
+drwxr-xr-x    2 ip2w    ip2w                        0 Aug  9 06:26 /var/log/ip2w
+```
+
 ### Запуск и тестирование
 
 ```bash
@@ -87,4 +100,13 @@ root        22  0.0  0.0  45812   952 ?        Ss   08:01   0:00 nginx: master p
 nginx       23  0.0  0.1  46196  3488 ?        S    08:01   0:00 nginx: worker process
 root        24  0.0  0.1  11776  3004 ?        Ss   08:01   0:00 /bin/bash
 root        40  0.0  0.1  47448  3280 ?        R+   08:02   0:00 ps aux
+```
+
+Проверка:
+
+```bash
+curl http://localhost:8080/ip2w/92.128.0.98
+
+# Ах! В Париже сейчас ясно!
+{"city": "Paris", "conditions": "ясно", "temp": 286.43}
 ```
