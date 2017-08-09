@@ -6,7 +6,7 @@ from wsgiref.simple_server import make_server
 from wsgiref.util import request_uri
 
 IPINFO = 'http://ipinfo.io/{ip}'
-OWM = 'http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&lang={lang}&APPID={app_id}'
+OWM = 'http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&lang={lang}&units=metric&APPID={app_id}'
 
 
 class RequestException(Exception):
@@ -20,7 +20,9 @@ def handle(ip):
     bogon = ip_info.get('bogon', False)
     if bogon:
         raise RequestException('Requested ip is bogon.')
-    app_id = os.environ.get('APPID', '94673c1dddb4a63971e88307d23c7585')
+    app_id = os.environ.get('APPID', None)
+    if not app_id:
+        raise RequestException('No OpenWeatherMap API key.')
     lat, lon = parse_loc(ip_info)
     weather_info = get_weather(lat, lon, 'ru', app_id)
     return service_response(ip_info, weather_info)
@@ -62,7 +64,6 @@ def get_ip_info(ip):
 
 
 def parse_loc(ip_info):
-    # TODO if key does not exists
     lat, lon = ip_info['loc'].split(',')
     return lat, lon
 
