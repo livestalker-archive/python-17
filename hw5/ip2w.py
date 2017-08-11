@@ -1,7 +1,9 @@
 import urllib2
 import json
 import os
-import re
+import socket
+import time
+from functools import wraps
 from wsgiref.simple_server import make_server
 from wsgiref.util import request_uri
 
@@ -9,14 +11,43 @@ IPINFO = 'http://ipinfo.io/{ip}'
 OWM = 'http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&lang={lang}&units=metric&APPID={app_id}'
 
 
+def retry(ExceptionToCheck, tries=3, delay=2, backoff=2, logger=None):
+    """Retry calling the decorated function using an exponential backoff.
+    http://www.saltycrane.com/blog/2009/11/trying-out-retry-decorator-python/
+    original from: http://wiki.python.org/moin/PythonDecoratorLibrary#Retry
+    """
+
+    def deco_retry(f):
+        @wraps(f)
+        def f_retry(*args, **kwargs):
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return f(*args, **kwargs)
+                except ExceptionToCheck as e:
+                    print "Fail"
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return f(*args, **kwargs)
+
+        return f_retry
+
+    return deco_retry
+
+
 class RequestException(Exception):
     pass
 
 
 def handle(ip):
-    if not is_ip_valid(ip):
+    ip = validate_ip(ip)
+    if not ip:
         raise RequestException('IP address {} format error.'.format(ip))
-    ip_info = get_ip_info(ip)
+    try:
+        ip_info = get_ip_info(ip)
+    except urllib2.URLError as e:
+        raise RequestException('IP info external service error.')
     bogon = ip_info.get('bogon', False)
     if bogon:
         raise RequestException('Requested ip is bogon.')
@@ -24,41 +55,38 @@ def handle(ip):
     if not app_id:
         raise RequestException('No OpenWeatherMap API key.')
     lat, lon = parse_loc(ip_info)
-    weather_info = get_weather(lat, lon, 'ru', app_id)
+    try:
+        weather_info = get_weather(lat, lon, 'ru', app_id)
+    except urllib2.URLError as e:
+        raise RequestException('OpenWeatherMap external service error.')
     return service_response(ip_info, weather_info)
 
 
-def is_ip_valid(ip):
-    ip_t = r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
-    ip_re = re.compile(ip_t)
-    if ip_re.match(ip):
-        return True
-    else:
-        return False
+def validate_ip(ip):
+    try:
+        return socket.inet_ntoa(socket.inet_aton(ip))
+    except socket.error:
+        return None
 
 
+@retry(urllib2.URLError)
 def get_weather(lat, lon, lang, app_id):
     req = urllib2.Request(OWM.format(lat=lat, lon=lon, lang=lang, app_id=app_id))
     req.add_header('Accept', 'application/json')
     try:
         res = urllib2.urlopen(req, None, 5)
         return json.loads(res.read())
-    except urllib2.URLError as e:
-        raise RequestException('External service error.')
     except ValueError as e:
         raise RequestException('External service format error.')
 
 
+@retry(urllib2.URLError)
 def get_ip_info(ip):
     req = urllib2.Request(IPINFO.format(ip=ip))
     req.add_header('Accept', 'application/json')
     try:
         res = urllib2.urlopen(req, None, 5)
         return json.loads(res.read())
-    except urllib2.URLError as e:
-        if e.code == 404:
-            raise RequestException('IP address {} not found on external service.'.format(ip))
-        raise RequestException('External service error.')
     except ValueError as e:
         raise RequestException('External service format error.')
 
