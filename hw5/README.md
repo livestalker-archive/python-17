@@ -108,5 +108,5 @@ root        40  0.0  0.1  47448  3280 ?        R+   08:02   0:00 ps aux
 curl http://localhost:8080/ip2w/92.128.0.98
 
 # Ах! В Париже сейчас ясно!
-{"city": "Paris", "conditions": "ясно", "temp": 286.43}
+{"city": "Paris", "conditions": "ясно", "temp": 26.1}
 ```
