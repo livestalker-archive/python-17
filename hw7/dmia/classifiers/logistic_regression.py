@@ -143,20 +143,20 @@ class LogisticRegression:
         H = self._sigmoid(X_batch.dot(self.w))
         P1 = -y_batch * np.log(H)
         P2 = (1.0 - y_batch) * np.log(1.0 - H)
-        #loss = (1.0 / m) * (P1 - P2).sum() + (reg / (2.0 * m)) * (self.w ** 2).sum()
         loss = (P1 - P2).sum()
-        dw = None
+        grad = (H - y_batch) * X_batch
+
         # Right now the loss is a sum over all training examples, but we want it
         # to be an average instead so we divide by num_train.
         # Note that the same thing must be done with gradient.
         loss = (1.0 / m) * loss
-        dw = None
+        grad = (1.0 / m) * grad
 
         # Add regularization to the loss and gradient.
         # Note that you have to exclude bias term in regularization.
         loss = loss + (reg / (2.0 * m)) * (self.w ** 2).sum()
-        dw = None
-
+        dw[0] = grad[0]
+        dw[1:] = grad[1:] + (reg / m) * self.w[:1]
 
         return loss, dw
 
