@@ -46,9 +46,9 @@ class LogisticRegression:
             # Hint: Use np.random.choice to generate indices. Sampling with         #
             # replacement is faster than sampling without replacement.              #
             #########################################################################
-            indices = np.random.choice(num_train, batch_size, replace=True)
-            X_batch = X[indices, :]
-            y_batch = y[indices]
+            ix = np.random.choice(num_train, batch_size, replace=True)
+            X_batch = X[ix, :]
+            y_batch = y[ix]
 
             #########################################################################
             #                       END OF YOUR CODE                                #
@@ -156,7 +156,7 @@ class LogisticRegression:
 
         # Add regularization to the loss and gradient.
         # Note that you have to exclude bias term in regularization.
-        loss = loss + (reg / (2.0 * m)) * (self.w[:-1] * self.w[:-1]).sum()
+        loss = loss + (reg / (2.0 * m)) * (self.w[:-1] ** 2).sum()
         dw[-1] = grad[-1]
         dw[:-1] = grad[:-1] + (reg / m) * self.w[:-1]
 
