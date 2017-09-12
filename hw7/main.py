@@ -20,6 +20,10 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=42)
     X_train_sample = X_train[:10000]
     y_train_sample = y_train[:10000]
+    #clf = LogisticRegression()
+    #clf.w = np.random.randn(X_train_sample.shape[1] + 1) * 2
+    #loss, grad = clf.loss(LogisticRegression.append_biases(X_train_sample), y_train_sample, 0.0)
     clf = LogisticRegression()
-    clf.w = np.random.randn(X_train_sample.shape[1] + 1) * 2
-    loss, grad = clf.loss(LogisticRegression.append_biases(X_train_sample), y_train_sample, 0.0)
+    clf.train(X_train, y_train, num_iters=100, verbose=True)
+    print "Train f1-score = %.3f" % accuracy_score(y_train, clf.predict(X_train))
+    print "Test f1-score = %.3f" % accuracy_score(y_test, clf.predict(X_test))
