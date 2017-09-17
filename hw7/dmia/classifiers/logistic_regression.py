@@ -95,7 +95,7 @@ class LogisticRegression:
         # Hint: It might be helpful to use np.vstack and np.sum                   #
         ###########################################################################
 
-        predictions = self._sigmoid(X.dot(self.w))
+        predictions = sigmoid(X.dot(self.w))
         y_proba = np.vstack([1 - predictions, predictions]).T
 
         ###########################################################################
@@ -142,7 +142,7 @@ class LogisticRegression:
         loss = 0
         m, n = X_batch.shape
         # Compute loss and gradient. Your code should not contain python loops.
-        H = self._sigmoid(X_batch.dot(self.w))
+        H = sigmoid(X_batch.dot(self.w))
         P1 = -y_batch * np.log(H)
         P2 = (1.0 - y_batch) * np.log(1.0 - H)
         loss = (P1 - P2).sum()
@@ -163,9 +163,9 @@ class LogisticRegression:
         return loss, dw
 
     @staticmethod
-    def _sigmoid(Z):
-        return 1.0 / (1.0 + np.exp(-Z))
-
-    @staticmethod
     def append_biases(X):
         return sparse.hstack((X, np.ones(X.shape[0])[:, np.newaxis])).tocsr()
+
+
+def sigmoid(Z):
+    return 1.0 / (1.0 + np.exp(-Z))
