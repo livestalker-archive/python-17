@@ -17,7 +17,7 @@ run_memcached:
 
 .PHONY: stop_memcaced
 stop_memcaced:
-	kill `ps aux | grep [m]emcached | cut -f3 -d' '`
+	kill -s 9 `ps aux | grep [m]emcached | tr -s ' ' | cut -f2 -d' '`
 
 .PHONY: back_rename
 back_rename:

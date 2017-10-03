@@ -26,14 +26,22 @@ results = mp.Manager().dict()
 
 
 def start_processes(count, options, device_memc, lock):
-    p = mp.Process(target=process_func, args=(options, device_memc, lock))
-    p.daemon = True
-    p.start()
+    for i in range(count):
+        p = mp.Process(target=process_func, args=(options, device_memc, lock))
+        p.daemon = True
+        p.start()
+        pool.append(p)
+
+
+def stop_processes():
+    for p in pool:
+        p.join(10)
+        p.terminate()
 
 
 def process_func(options, device_memc, lock):
     while True:
-        line = line_queue.get(True)
+        line = line_queue.get(True, 10)
         if line == 'STOP':
             break
         line = line.strip()
@@ -110,7 +118,7 @@ def main(options):
         "adid": options.adid,
         "dvid": options.dvid,
     }
-    start_processes(1, options, device_memc, results_lock)
+    start_processes(10, options, device_memc, results_lock)
     for fn in glob.iglob(options.pattern):
         results['processed'] = 0
         results['errors'] = 0
@@ -134,6 +142,7 @@ def main(options):
             logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
         fd.close()
         dot_rename(fn)
+    stop_processes()
 
 
 def prototest():
