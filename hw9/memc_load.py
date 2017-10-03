@@ -71,25 +71,28 @@ def file_handler(params):
     sys.stdout.flush()
     sys.stderr.flush()
     processed = errors = 0
-    with gzip.open(fn) as fd:
-        for line in fd:
-            line = line.strip()
-            if not line:
-                continue
-            appsinstalled = parse_appsinstalled(line)
-            if not appsinstalled:
-                errors += 1
-                continue
-            memc_addr = device_memc.get(appsinstalled.dev_type)
-            if not memc_addr:
-                errors += 1
-                logging.error("Unknow device type: %s" % appsinstalled.dev_type)
-                continue
-            ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
-            if ok:
-                processed += 1
-            else:
-                errors += 1
+    try:
+        with gzip.open(fn) as fd:
+            for line in fd:
+                line = line.strip()
+                if not line:
+                    continue
+                appsinstalled = parse_appsinstalled(line)
+                if not appsinstalled:
+                    errors += 1
+                    continue
+                memc_addr = device_memc.get(appsinstalled.dev_type)
+                if not memc_addr:
+                    errors += 1
+                    logging.error("Unknow device type: %s" % appsinstalled.dev_type)
+                    continue
+                ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
+                if ok:
+                    processed += 1
+                else:
+                    errors += 1
+    except KeyboardInterrupt:
+        return 0, 0, 0
     return fn, processed, errors
 
 
@@ -114,8 +117,8 @@ def main(options):
                 logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
             dot_rename(fn)
     except KeyboardInterrupt:
+        logging.info("Main process KeyboardInterrupt")
         proc_pool.terminate()
-        exit(0)
 
 
 def prototest():
