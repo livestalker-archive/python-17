@@ -16,53 +16,7 @@ import memcache
 import multiprocessing as mp
 
 NORMAL_ERR_RATE = 0.01
-QUEUE_MAX_SIZE = 100
 AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "lat", "lon", "apps"])
-
-pool = []
-line_queue = mp.JoinableQueue(maxsize=QUEUE_MAX_SIZE)
-results_lock = mp.Lock()
-results = mp.Manager().dict()
-
-
-def start_processes(count, options, device_memc, lock):
-    for i in range(count):
-        p = mp.Process(target=process_func, args=(options, device_memc, lock))
-        p.daemon = True
-        p.start()
-        pool.append(p)
-
-
-def stop_processes():
-    for p in pool:
-        p.join(10)
-        p.terminate()
-
-
-def process_func(options, device_memc, lock):
-    while True:
-        line = line_queue.get(True, 10)
-        if line == 'STOP':
-            break
-        line = line.strip()
-        if not line:
-            continue
-        appsinstalled = parse_appsinstalled(line)
-        if not appsinstalled:
-            with lock:
-                results['errors'] += 1
-            continue
-        memc_addr = device_memc.get(appsinstalled.dev_type)
-        if not memc_addr:
-            results['errors'] += 1
-            logging.error("Unknow device type: %s" % appsinstalled.dev_type)
-            continue
-        ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
-        if ok:
-            results['processed'] += 1
-        else:
-            results['errors'] += 1
-        line_queue.task_done()
 
 
 def dot_rename(path):
@@ -111,6 +65,31 @@ def parse_appsinstalled(line):
     return AppsInstalled(dev_type, dev_id, lat, lon, apps)
 
 
+def file_handler(params):
+    fn, device_memc, options = params
+    processed = errors = 0
+    with gzip.open(fn) as fd:
+        for line in fd:
+            line = line.strip()
+            if not line:
+                continue
+            appsinstalled = parse_appsinstalled(line)
+            if not appsinstalled:
+                errors += 1
+                continue
+            memc_addr = device_memc.get(appsinstalled.dev_type)
+            if not memc_addr:
+                errors += 1
+                logging.error("Unknow device type: %s" % appsinstalled.dev_type)
+                continue
+            ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
+            if ok:
+                processed += 1
+            else:
+                errors += 1
+    return fn, processed, errors
+
+
 def main(options):
     device_memc = {
         "idfa": options.idfa,
@@ -118,31 +97,17 @@ def main(options):
         "adid": options.adid,
         "dvid": options.dvid,
     }
-    start_processes(10, options, device_memc, results_lock)
-    for fn in glob.iglob(options.pattern):
-        results['processed'] = 0
-        results['errors'] = 0
-        logging.info('Processing %s' % fn)
-        fd = gzip.open(fn)
-        for line in fd:
-            line_queue.put(line, block=True)
-        line_queue.join()
-        errors = results['errors']
-        processed = results['processed']
 
-        if not processed:
-            fd.close()
-            dot_rename(fn)
-            continue
-
+    proc_args = ((fn, device_memc, options) for fn in glob.iglob(options.pattern))
+    proc_pool = mp.Pool(mp.cpu_count())
+    for res in proc_pool.imap(file_handler, proc_args):
+        fn, processed, errors = res
         err_rate = float(errors) / processed
         if err_rate < NORMAL_ERR_RATE:
             logging.info("Acceptable error rate (%s). Successfull load" % err_rate)
         else:
             logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
-        fd.close()
         dot_rename(fn)
-    stop_processes()
 
 
 def prototest():

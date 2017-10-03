@@ -10,18 +10,14 @@ prepare-ve:
 
 .PHONY: run_memcached
 run_memcached:
-	memcached -l ${BIND_ADDRESS} -p 33013 &
-	memcached -l ${BIND_ADDRESS} -p 33014 &
-	memcached -l ${BIND_ADDRESS} -p 33015 &
-	memcached -l ${BIND_ADDRESS} -p 33016 &
+	memcached -l $(BIND_ADDRESS) -p 33013 &
+	memcached -l $(BIND_ADDRESS) -p 33014 &
+	memcached -l $(BIND_ADDRESS) -p 33015 &
+	memcached -l $(BIND_ADDRESS) -p 33016 &
 
 .PHONY: stop_memcaced
 stop_memcaced:
 	kill -s 9 `ps aux | grep [m]emcached | tr -s ' ' | cut -f2 -d' '`
 
-.PHONY: back_rename
-back_rename:
-	@-mv ./data/appsinstalled/.20170929000200.tsv.gz ./data/appsinstalled/20170929000200.tsv.gz
-
 .PHONY: reset
-reset: stop_memcaced back_rename run_memcached
+reset: stop_memcaced run_memcached

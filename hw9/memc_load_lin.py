@@ -18,9 +18,6 @@ import multiprocessing as mp
 NORMAL_ERR_RATE = 0.01
 AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "lat", "lon", "apps"])
 
-line_queue = mp.Queue()
-results_lock = mp.Lock()
-results = {}
 
 def dot_rename(path):
     head, fn = os.path.split(path)
