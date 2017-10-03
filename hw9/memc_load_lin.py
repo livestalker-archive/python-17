@@ -16,46 +16,11 @@ import memcache
 import multiprocessing as mp
 
 NORMAL_ERR_RATE = 0.01
-QUEUE_MAX_SIZE = 100
 AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "lat", "lon", "apps"])
 
-pool = []
-line_queue = mp.JoinableQueue(maxsize=QUEUE_MAX_SIZE)
+line_queue = mp.Queue()
 results_lock = mp.Lock()
-results = mp.Manager().dict()
-
-
-def start_processes(count, options, device_memc, lock):
-    p = mp.Process(target=process_func, args=(options, device_memc, lock))
-    p.daemon = True
-    p.start()
-
-
-def process_func(options, device_memc, lock):
-    while True:
-        line = line_queue.get(True)
-        if line == 'STOP':
-            break
-        line = line.strip()
-        if not line:
-            continue
-        appsinstalled = parse_appsinstalled(line)
-        if not appsinstalled:
-            with lock:
-                results['errors'] += 1
-            continue
-        memc_addr = device_memc.get(appsinstalled.dev_type)
-        if not memc_addr:
-            results['errors'] += 1
-            logging.error("Unknow device type: %s" % appsinstalled.dev_type)
-            continue
-        ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
-        if ok:
-            results['processed'] += 1
-        else:
-            results['errors'] += 1
-        line_queue.task_done()
-
+results = {}
 
 def dot_rename(path):
     head, fn = os.path.split(path)
@@ -110,18 +75,28 @@ def main(options):
         "adid": options.adid,
         "dvid": options.dvid,
     }
-    start_processes(1, options, device_memc, results_lock)
     for fn in glob.iglob(options.pattern):
-        results['processed'] = 0
-        results['errors'] = 0
+        processed = errors = 0
         logging.info('Processing %s' % fn)
         fd = gzip.open(fn)
         for line in fd:
-            line_queue.put(line, block=True)
-        line_queue.join()
-        errors = results['errors']
-        processed = results['processed']
-
+            line = line.strip()
+            if not line:
+                continue
+            appsinstalled = parse_appsinstalled(line)
+            if not appsinstalled:
+                errors += 1
+                continue
+            memc_addr = device_memc.get(appsinstalled.dev_type)
+            if not memc_addr:
+                errors += 1
+                logging.error("Unknow device type: %s" % appsinstalled.dev_type)
+                continue
+            ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
+            if ok:
+                processed += 1
+            else:
+                errors += 1
         if not processed:
             fd.close()
             dot_rename(fn)

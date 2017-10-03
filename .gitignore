@@ -105,3 +105,4 @@ report-*
 sample-report-*
 !Homework.ipynb
 !hw8.ipynb
+*.tsv.gz
