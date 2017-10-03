@@ -68,6 +68,8 @@ def parse_appsinstalled(line):
 def file_handler(params):
     fn, device_memc, options = params
     logging.info('Processing %s' % fn)
+    sys.stdout.flush()
+    sys.stderr.flush()
     processed = errors = 0
     with gzip.open(fn) as fd:
         for line in fd:
@@ -101,14 +103,19 @@ def main(options):
 
     proc_args = ((fn, device_memc, options) for fn in glob.iglob(options.pattern))
     proc_pool = mp.Pool(mp.cpu_count())
-    for res in proc_pool.imap(file_handler, proc_args):
-        fn, processed, errors = res
-        err_rate = float(errors) / processed
-        if err_rate < NORMAL_ERR_RATE:
-            logging.info("Acceptable error rate (%s). Successfull load" % err_rate)
-        else:
-            logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
-        dot_rename(fn)
+    logging.info("Worker count: %s." % mp.cpu_count())
+    try:
+        for res in proc_pool.imap(file_handler, proc_args):
+            fn, processed, errors = res
+            err_rate = float(errors) / processed
+            if err_rate < NORMAL_ERR_RATE:
+                logging.info("Acceptable error rate (%s). Successfull load" % err_rate)
+            else:
+                logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
+            dot_rename(fn)
+    except KeyboardInterrupt:
+        proc_pool.terminate()
+        exit(0)
 
 
 def prototest():
