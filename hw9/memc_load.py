@@ -67,6 +67,7 @@ def parse_appsinstalled(line):
 
 def file_handler(params):
     fn, device_memc, options = params
+    logging.info('Processing %s' % fn)
     processed = errors = 0
     with gzip.open(fn) as fd:
         for line in fd:
