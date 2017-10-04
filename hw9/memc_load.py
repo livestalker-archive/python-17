@@ -27,25 +27,28 @@ def dot_rename(path):
     os.rename(path, os.path.join(head, "." + fn))
 
 
-def insert_appsinstalled(memc_addr, appsinstalled, dry_run=False):
+def insert_appsinstalled(memc, appsinstalled, dry_run=False):
+    tries = 3
+    delay = 0.1
     ua = appsinstalled_pb2.UserApps()
     ua.lat = appsinstalled.lat
     ua.lon = appsinstalled.lon
     key = "%s:%s" % (appsinstalled.dev_type, appsinstalled.dev_id)
     ua.apps.extend(appsinstalled.apps)
     packed = ua.SerializeToString()
-    # @TODO persistent connection
-    # @TODO retry and timeouts!
     try:
         if dry_run:
-            logging.debug("%s - %s -> %s" % (memc_addr, key, str(ua).replace("\n", " ")))
+            logging.debug("%s - %s -> %s" % (memc.servers[0], key, str(ua).replace("\n", " ")))
         else:
-            memc = memcache.Client([memc_addr])
-            memc.set(key, packed)
+            res = memc.set(key, packed)
+            while not res and tries > 0:
+                time.sleep(delay)
+                res = memc.set(key, packed)
+                tries -= 1
+            return res != 0
     except Exception, e:
-        logging.exception("Cannot write to memc %s: %s" % (memc_addr, e))
+        logging.exception("Cannot write to memc %s: %s" % (memc.servers[0], e))
         return False
-    return True
 
 
 def parse_appsinstalled(line):
@@ -68,6 +71,9 @@ def parse_appsinstalled(line):
 
 
 def file_handler(q, res_q, device_memc, options):
+    memc_pool = {}
+    for d in device_memc:
+        memc_pool[d] = memcache.Client([device_memc[d]])
     try:
         while True:
             seq, fn = q.get(True, 10)
@@ -82,12 +88,12 @@ def file_handler(q, res_q, device_memc, options):
                     if not appsinstalled:
                         errors += 1
                         continue
-                    memc_addr = device_memc.get(appsinstalled.dev_type)
-                    if not memc_addr:
+                    memc = memc_pool.get(appsinstalled.dev_type)
+                    if not memc:
                         errors += 1
                         logging.error("Unknow device type: %s" % appsinstalled.dev_type)
                         continue
-                    ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
+                    ok = insert_appsinstalled(memc, appsinstalled, options.dry)
                     if ok:
                         processed += 1
                     else:

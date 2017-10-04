@@ -10,10 +10,10 @@ prepare-ve:
 
 .PHONY: run_memcached
 run_memcached:
-	memcached -l $(BIND_ADDRESS) -p 33013 &
-	memcached -l $(BIND_ADDRESS) -p 33014 &
-	memcached -l $(BIND_ADDRESS) -p 33015 &
-	memcached -l $(BIND_ADDRESS) -p 33016 &
+	memcached -l $(BIND_ADDRESS) -m 1024 -p 33013 &
+	memcached -l $(BIND_ADDRESS) -m 1024 -p 33014 &
+	memcached -l $(BIND_ADDRESS) -m 1024 -p 33015 &
+	memcached -l $(BIND_ADDRESS) -m 1024 -p 33016 &
 
 .PHONY: stop_memcaced
 stop_memcaced:
