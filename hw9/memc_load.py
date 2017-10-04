@@ -6,6 +6,7 @@ import sys
 import glob
 import logging
 import collections
+import time
 from optparse import OptionParser
 # brew install protobuf
 # protoc  --python_out=. ./appsinstalled.proto
@@ -14,6 +15,7 @@ import appsinstalled_pb2
 # pip install python-memcached
 import memcache
 import multiprocessing as mp
+import Queue
 
 NORMAL_ERR_RATE = 0.01
 AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "lat", "lon", "apps"])
@@ -65,35 +67,62 @@ def parse_appsinstalled(line):
     return AppsInstalled(dev_type, dev_id, lat, lon, apps)
 
 
-def file_handler(params):
-    fn, device_memc, options = params
-    logging.info('Processing %s' % fn)
-    sys.stdout.flush()
-    sys.stderr.flush()
-    processed = errors = 0
+def file_handler(q, res_q, device_memc, options):
     try:
-        with gzip.open(fn) as fd:
-            for line in fd:
-                line = line.strip()
-                if not line:
-                    continue
-                appsinstalled = parse_appsinstalled(line)
-                if not appsinstalled:
-                    errors += 1
-                    continue
-                memc_addr = device_memc.get(appsinstalled.dev_type)
-                if not memc_addr:
-                    errors += 1
-                    logging.error("Unknow device type: %s" % appsinstalled.dev_type)
-                    continue
-                ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
-                if ok:
-                    processed += 1
+        while True:
+            seq, fn = q.get(True, 10)
+            logging.info('Processing %s (seq: %s)' % (fn, seq))
+            processed = errors = 0
+            with gzip.open(fn) as fd:
+                for line in fd:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    appsinstalled = parse_appsinstalled(line)
+                    if not appsinstalled:
+                        errors += 1
+                        continue
+                    memc_addr = device_memc.get(appsinstalled.dev_type)
+                    if not memc_addr:
+                        errors += 1
+                        logging.error("Unknow device type: %s" % appsinstalled.dev_type)
+                        continue
+                    ok = insert_appsinstalled(memc_addr, appsinstalled, options.dry)
+                    if ok:
+                        processed += 1
+                    else:
+                        errors += 1
+            res_q.put((seq, fn, processed, errors))
+    except Queue.Empty:
+        logging.info('%s - queue empty.' % mp.current_process().name)
+
+
+def res_handler(res_q):
+    logging.info('Start results worker')
+    current_seq = 0
+    while True:
+        try:
+            res = res_q.get(True, 10)
+            if res == 'STOP':
+                if res_q.qsize() == 0:
+                    break
                 else:
-                    errors += 1
-    except KeyboardInterrupt:
-        return 0, 0, 0
-    return fn, processed, errors
+                    res_q.put('STOP')
+            seq, fn, processed, errors = res
+            if current_seq == seq:
+                if processed:
+                    err_rate = float(errors) / processed
+                    if err_rate < NORMAL_ERR_RATE:
+                        logging.info("Acceptable error rate (%s). Successfull load" % err_rate)
+                    else:
+                        logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
+                dot_rename(fn)
+                logging.info('Rename %s (seq: %s)' % (fn, seq))
+                current_seq += 1
+            else:
+                res_q.put(res)
+        except Queue.Empty:
+            continue
 
 
 def main(options):
@@ -103,22 +132,29 @@ def main(options):
         "adid": options.adid,
         "dvid": options.dvid,
     }
-
-    proc_args = ((fn, device_memc, options) for fn in glob.iglob(options.pattern))
-    proc_pool = mp.Pool(mp.cpu_count())
+    q = mp.Queue()
+    res_q = mp.Queue()
+    proc_args = (q, res_q, device_memc, options)
+    seq = 0
+    for fn in glob.iglob(options.pattern):
+        q.put((seq, fn))
+        seq += 1
     logging.info("Worker count: %s." % mp.cpu_count())
-    try:
-        for res in proc_pool.imap(file_handler, proc_args):
-            fn, processed, errors = res
-            err_rate = float(errors) / processed
-            if err_rate < NORMAL_ERR_RATE:
-                logging.info("Acceptable error rate (%s). Successfull load" % err_rate)
-            else:
-                logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
-            dot_rename(fn)
-    except KeyboardInterrupt:
-        logging.info("Main process KeyboardInterrupt")
-        proc_pool.terminate()
+    proc_pool = [mp.Process(target=file_handler, args=proc_args) for _ in range(mp.cpu_count())]
+    res_proc = mp.Process(target=res_handler, args=(res_q,))
+    res_proc.daemon = True
+    res_proc.start()
+    for p in proc_pool:
+        p.daemon = True
+        p.start()
+
+    for p in proc_pool:
+        p.join()
+
+    res_q.put('STOP')
+    res_proc.join(10)
+    if res_proc.is_alive():
+        res_proc.terminate()
 
 
 def prototest():
