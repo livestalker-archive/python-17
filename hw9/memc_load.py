@@ -149,7 +149,7 @@ def main(options):
     logging.info("Worker count: %s." % options.workers)
     for fn in proc_pool.imap(file_handler, proc_args):
         dot_rename(fn)
-        logging.info('Rename %s (seq: %s)' % fn)
+        logging.info('Rename %s.' % fn)
 
 def prototest():
     sample = "idfa\t1rfw452y52g2gq4g\t55.55\t42.42\t1423,43,567,3,7,23\ngaid\t7rfw452y52g2gq4g\t55.55\t42.42\t7423,424"
