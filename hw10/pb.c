@@ -113,15 +113,27 @@ void process_item(PyObject* item) {
     PyObject* v_apps = PyMapping_GetItemString(item, F_APPS);
     PyObject* v_lat = PyMapping_GetItemString(item, F_LAT);
     PyObject* v_lon = PyMapping_GetItemString(item, F_LON);
-    pack_and_write(v_device, v_type, v_id, v_apps, v_lat, v_lon);
-    Py_DECREF(v_device);
-    Py_DECREF(v_apps);
-    Py_DECREF(v_lat);
-    Py_DECREF(v_lon);
+    pack_and_write(v_type, v_id, v_apps, v_lat, v_lon);
+    Py_XDECREF(v_device);
+    Py_XDECREF(v_type);
+    Py_XDECREF(v_id);
+    Py_XDECREF(v_apps);
+    Py_XDECREF(v_lat);
+    Py_XDECREF(v_lon);
     return;
 }
 
-void pack_and_write(device, type, id, apps, lat, lon) {
+void pack_and_write(PyObject* type, PyObject* id, PyObject* apps, PyObject* lat, PyObject* lon) {
+    DeviceApps msg = DEVICE_APPS__INIT;
+    DeviceApps__Device device = DEVICE_APPS__DEVICE__INIT;
+    void *buf;
+    unsigned len;
+
+    char *device_id = PyString_AsString(id);
+    char *device_type = PyString_AsString(type);
+    dprint("\nID: %s", device_id);
+    dprint("\nType: %s", device_type);
+    return;
 }
 
 // Unpack only messages with type == DEVICE_APPS_TYPE
