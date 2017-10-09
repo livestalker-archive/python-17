@@ -6,8 +6,6 @@ sudo apt-get install protobuf-compiler
 
 ## Lab configuration ##
 
-*CPU*
-
 ```
 processor       : 0
 vendor_id       : GenuineIntel
