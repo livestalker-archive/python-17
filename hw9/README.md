@@ -60,28 +60,23 @@ user    24m30.116s
 sys     5m52.516s
 ```
 
-N процессов, в данном случае 4, задействовано 3 (т.к. три файла с даннаыми)
+N процессов (без тредов), в данном случае 4, задействовано 3 (т.к. три файла с даннаыми)
 
 ```bash
-(.hw9) aleksio@nginx:~/hw9$ time python memc_load.py --pattern './data/appsinstalled/*.tsv.gz'
-[2017.10.04 14:20:17] I Memc loader started with options: {'dry': False, 'log': None, 'pattern': './data/appsinstalled/*.tsv.gz', 'idfa': '127.0.0.1:33013', 'dvid': '127.0.0.1:33016', 'test': False, 'adid': '127.0.0.1:33015', 'gaid': '127.0.0.1:33014'}
-[2017.10.04 14:20:17] I Worker count: 4.
-[2017.10.04 14:20:17] I Start results worker
-[2017.10.04 14:20:17] I Processing ./data/appsinstalled/20170929000200.tsv.gz (seq: 0)
-[2017.10.04 14:20:17] I Processing ./data/appsinstalled/20170929000100.tsv.gz (seq: 1)
-[2017.10.04 14:20:17] I Processing ./data/appsinstalled/20170929000000.tsv.gz (seq: 2)
-[2017.10.04 14:20:27] I Process-4 - queue empty.
-[2017.10.04 14:33:07] I Acceptable error rate (0.0). Successfull load
-[2017.10.04 14:33:07] I Rename ./data/appsinstalled/20170929000200.tsv.gz (seq: 0)
-[2017.10.04 14:33:07] I Acceptable error rate (0.0). Successfull load
-[2017.10.04 14:33:07] I Rename ./data/appsinstalled/20170929000100.tsv.gz (seq: 1)
-[2017.10.04 14:33:07] I Acceptable error rate (0.0). Successfull load
-[2017.10.04 14:33:07] I Rename ./data/appsinstalled/20170929000000.tsv.gz (seq: 2)
-[2017.10.04 14:33:14] I Process-3 - queue empty.
-[2017.10.04 14:33:14] I Process-2 - queue empty.
-[2017.10.04 14:33:17] I Process-1 - queue empty.
+(.hw9) aleksio@nginx:~/hw9$ time python memc_load.py --pattern './data/appsinstalled/big/*.tsv.gz'
+[2017.10.06 15:44:34] I Memc loader started with options: {'dry': False, 'log': None, 'pattern': './data/appsinstalled/big/*.tsv.gz', 'workers': 4, 'idfa': '127.0.0.1:33013', 'dvid': '127.0.0.1:33016', 'test': False, 'adid': '127.0.0.1:33015', 'gaid': '127.0.0.1:33014'}
+[2017.10.06 15:44:34] I Worker count: 4.
+[2017.10.06 15:44:34] I Processing ./data/appsinstalled/big/20170929000000.tsv.gz.
+[2017.10.06 15:44:34] I Processing ./data/appsinstalled/big/20170929000100.tsv.gz.
+[2017.10.06 15:44:34] I Processing ./data/appsinstalled/big/20170929000200.tsv.gz.
+[2017.10.06 15:57:27] I Acceptable error rate (0.0). Successfull load
+[2017.10.06 15:57:33] I Acceptable error rate (0.0). Successfull load
+[2017.10.06 15:57:33] I Rename ./data/appsinstalled/big/20170929000000.tsv.gz.
+[2017.10.06 15:57:35] I Acceptable error rate (0.0). Successfull load
+[2017.10.06 15:57:35] I Rename ./data/appsinstalled/big/20170929000100.tsv.gz.
+[2017.10.06 15:57:35] I Rename ./data/appsinstalled/big/20170929000200.tsv.gz.
 
-real    13m0.162s
-user    24m9.420s
-sys     5m9.492s
+real    13m1.608s
+user    24m9.276s
+sys     5m18.528s
 ```
