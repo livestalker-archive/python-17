@@ -27,5 +27,5 @@ class TestPB(unittest.TestCase):
     @unittest.skip("Optional problem")
     def test_read(self):
         pb.deviceapps_xwrite_pb(self.deviceapps, TEST_FILE)
-        for i, d in pb.deviceapps_xread_pb(TEST_FILE):
+        for i, d in enumerate(pb.deviceapps_xread_pb(TEST_FILE)):
             self.assertEqual(d, self.deviceapps[i])

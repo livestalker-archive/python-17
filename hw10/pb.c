@@ -65,7 +65,7 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     if (!PyArg_ParseTuple(args, "Os", &o, &path))
         return NULL;
 
-    printf("Write to: %s\n", path);
+    printf("!Write to: %s\n", path);
     Py_RETURN_NONE;
 }
 
