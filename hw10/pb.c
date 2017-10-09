@@ -7,6 +7,9 @@
 
 #define MAGIC  0xFFFFFFFF
 #define DEVICE_APPS_TYPE 1
+#define DEBUG 1
+#define dprint(fmt, ...) \
+            do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 typedef struct pbheader_s {
     uint32_t magic;
@@ -15,6 +18,13 @@ typedef struct pbheader_s {
 } pbheader_t;
 #define PBHEADER_INIT {MAGIC, 0, 0}
 
+// fields
+const char F_DEVICE[] = "device";
+const char F_TYPE[]   = "type";
+const char F_ID[]     = "id";
+const char F_APPS[]   = "apps";
+const char F_LAT[]    = "lat";
+const char F_LON[]    = "lon";
 
 // https://github.com/protobuf-c/protobuf-c/wiki/Examples
 void example() {
@@ -59,14 +69,59 @@ void example() {
 // Pack them to DeviceApps protobuf and write to file with appropriate header
 // Return number of written bytes as Python integer
 static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
+    int ix = 0;
     const char* path;
     PyObject* o;
+    PyObject *iterator;
+    PyObject *item;
+    PyObject *v_device;
 
+    // Parse arguments (iterator, string)
     if (!PyArg_ParseTuple(args, "Os", &o, &path))
         return NULL;
 
-    printf("!Write to: %s\n", path);
+    // Get iterator
+    iterator = PyObject_GetIter(o);
+    if (iterator == NULL)
+        return NULL;
+
+    // Loop through items
+    while (item = PyIter_Next(iterator)) {
+        // item support mapping protocol
+        if (PyMapping_Check(item)) {
+            process_item(item);
+        }
+        // item not support item protocol
+        else {
+            dprint("Item with index %i does not mapping object.", ix);
+        }
+        Py_DECREF(item);
+        ix ++;
+    }
+
+    Py_DECREF(iterator);
+
+    printf("\nWrite to: %s\n", path);
     Py_RETURN_NONE;
+}
+
+void process_item(PyObject* item) {
+    //TODO if device exists
+    PyObject* v_device = PyMapping_GetItemString(item, F_DEVICE);
+    PyObject* v_type = PyMapping_GetItemString(v_device, F_TYPE);
+    PyObject* v_id = PyMapping_GetItemString(v_device, F_ID);
+    PyObject* v_apps = PyMapping_GetItemString(item, F_APPS);
+    PyObject* v_lat = PyMapping_GetItemString(item, F_LAT);
+    PyObject* v_lon = PyMapping_GetItemString(item, F_LON);
+    pack_and_write(v_device, v_type, v_id, v_apps, v_lat, v_lon);
+    Py_DECREF(v_device);
+    Py_DECREF(v_apps);
+    Py_DECREF(v_lat);
+    Py_DECREF(v_lon);
+    return;
+}
+
+void pack_and_write(device, type, id, apps, lat, lon) {
 }
 
 // Unpack only messages with type == DEVICE_APPS_TYPE
