@@ -143,14 +143,12 @@ int process_item(PyObject* item) {
     if (v_lat && PyNumber_Check(v_lat)) {
         lat = (float* )malloc(sizeof(float));
         *lat = PyFloat_AsDouble(v_lat);
-        dprint("\nlat: %.4f\n", *lat);
     }
 
     v_lon = PyMapping_GetItemString(item, F_LON);
     if (v_lon && PyNumber_Check(v_lon)) {
         lon = (float* )malloc(sizeof(float));
         *lon = PyFloat_AsDouble(v_lon);
-        dprint("\nlat: %.4f\n", *lon);
     }
     written = pack_and_write(device_type, device_id, count, apps, lat, lon);
     Py_XDECREF(v_device);
@@ -168,7 +166,7 @@ int process_item(PyObject* item) {
 void pack_and_write(const char* type,
                     const char* id,
                     int count,
-                    PyObject* apps,
+                    long* apps,
                     const float* lat,
                     const float* lon) {
     DeviceApps msg = DEVICE_APPS__INIT;
@@ -176,8 +174,12 @@ void pack_and_write(const char* type,
     void *buf;
     unsigned len;
 
-    dprint("\nID: %s", id);
-    dprint("\nType: %s", type);
+    dprint("\nID: %s\n", id);
+    dprint("Type: %s\n", type);
+    dprint("Apps count: %i\n", count);
+    //dprint("Type: %s\n", type);
+    dprint("lat: %.4f\n", *lat);
+    dprint("lon: %.4f\n", *lon);
     return;
 }
 
