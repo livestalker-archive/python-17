@@ -70,6 +70,7 @@ void example() {
 // Return number of written bytes as Python integer
 static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     int ix = 0;
+    int written = 0;
     const char* path;
     PyObject* o;
     PyObject *iterator;
@@ -89,11 +90,12 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     while (item = PyIter_Next(iterator)) {
         // item support mapping protocol
         if (PyMapping_Check(item)) {
-            process_item(item);
+            written += process_item(item);
         }
         // item not support item protocol
         else {
             dprint("Item with index %i does not mapping object.", ix);
+            PyErr_SetString(PyExc_ValueError, "The deviceapps type must be a dictionary");
         }
         Py_DECREF(item);
         ix ++;
@@ -102,37 +104,80 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     Py_DECREF(iterator);
 
     printf("\nWrite to: %s\n", path);
-    Py_RETURN_NONE;
+    return Py_BuildValue("i", written);
 }
 
-void process_item(PyObject* item) {
-    //TODO if device exists
-    PyObject* v_device = PyMapping_GetItemString(item, F_DEVICE);
-    PyObject* v_type = PyMapping_GetItemString(v_device, F_TYPE);
-    PyObject* v_id = PyMapping_GetItemString(v_device, F_ID);
-    PyObject* v_apps = PyMapping_GetItemString(item, F_APPS);
-    PyObject* v_lat = PyMapping_GetItemString(item, F_LAT);
-    PyObject* v_lon = PyMapping_GetItemString(item, F_LON);
-    pack_and_write(v_type, v_id, v_apps, v_lat, v_lon);
+int process_item(PyObject* item) {
+    PyObject* v_device;
+    PyObject* v_type;
+    PyObject* v_id;
+    PyObject* v_apps;
+    PyObject* v_lat;
+    PyObject* v_lon;
+    const char* device_id = NULL;
+    const char* device_type = NULL;
+    float* lat = NULL;
+    float* lon = NULL;
+    int count = 0;
+    long* apps = NULL;
+    unsigned written = 0;
+    v_device = PyMapping_GetItemString(item, F_DEVICE);
+    if (v_device != NULL) {
+        v_type = PyMapping_GetItemString(v_device, F_TYPE);
+        v_id = PyMapping_GetItemString(v_device, F_ID);
+        device_type = PyString_AsString(v_type);
+        device_id = PyString_AsString(v_id);
+    }
+    v_apps = PyMapping_GetItemString(item, F_APPS);
+    if (v_apps && PySequence_Check(v_apps)) {
+        count = PySequence_Size(v_apps);
+        apps = malloc(sizeof(long) * count);
+        for (int i = 0; i < count; i++) {
+            PyObject *id_app = PyList_GET_ITEM(v_apps, i);
+            apps[i] = PyInt_AsLong(id_app);
+            Py_XDECREF(id_app);
+        }
+    }
+
+    v_lat = PyMapping_GetItemString(item, F_LAT);
+    if (v_lat && PyNumber_Check(v_lat)) {
+        lat = (float* )malloc(sizeof(float));
+        *lat = PyFloat_AsDouble(v_lat);
+        dprint("\nlat: %.4f\n", *lat);
+    }
+
+    v_lon = PyMapping_GetItemString(item, F_LON);
+    if (v_lon && PyNumber_Check(v_lon)) {
+        lon = (float* )malloc(sizeof(float));
+        *lon = PyFloat_AsDouble(v_lon);
+        dprint("\nlat: %.4f\n", *lon);
+    }
+    written = pack_and_write(device_type, device_id, count, apps, lat, lon);
     Py_XDECREF(v_device);
     Py_XDECREF(v_type);
     Py_XDECREF(v_id);
     Py_XDECREF(v_apps);
     Py_XDECREF(v_lat);
     Py_XDECREF(v_lon);
-    return;
+    if (lat) free(lat);
+    if (lon) free(lon);
+    if (apps) free(apps);
+    return written;
 }
 
-void pack_and_write(PyObject* type, PyObject* id, PyObject* apps, PyObject* lat, PyObject* lon) {
+void pack_and_write(const char* type,
+                    const char* id,
+                    int count,
+                    PyObject* apps,
+                    const float* lat,
+                    const float* lon) {
     DeviceApps msg = DEVICE_APPS__INIT;
     DeviceApps__Device device = DEVICE_APPS__DEVICE__INIT;
     void *buf;
     unsigned len;
 
-    char *device_id = PyString_AsString(id);
-    char *device_type = PyString_AsString(type);
-    dprint("\nID: %s", device_id);
-    dprint("\nType: %s", device_type);
+    dprint("\nID: %s", id);
+    dprint("\nType: %s", type);
     return;
 }
 
