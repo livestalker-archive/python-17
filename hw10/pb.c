@@ -8,6 +8,8 @@
 #define MAGIC  0xFFFFFFFF
 #define DEVICE_APPS_TYPE 1
 #define DEBUG 1
+#define dprintp(fmt) \
+            do { if (DEBUG) fprintf(stderr, fmt); } while (0)
 #define dprint(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
@@ -18,13 +20,17 @@ typedef struct pbheader_s {
 } pbheader_t;
 #define PBHEADER_INIT {MAGIC, 0, 0}
 
+// functions
+int process_item(PyObject*, FILE*);
+int pack_and_write(const char*, const char*, int, long*, const float*, const float*, FILE*);
+
 // fields
-const char F_DEVICE[] = "device";
-const char F_TYPE[]   = "type";
-const char F_ID[]     = "id";
-const char F_APPS[]   = "apps";
-const char F_LAT[]    = "lat";
-const char F_LON[]    = "lon";
+char F_DEVICE[] = "device";
+char F_TYPE[]   = "type";
+char F_ID[]     = "id";
+char F_APPS[]   = "apps";
+char F_LAT[]    = "lat";
+char F_LON[]    = "lon";
 
 // Read iterator of Python dicts
 // Pack them to DeviceApps protobuf and write to file with appropriate header
@@ -36,7 +42,6 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     PyObject* o;
     PyObject *iterator;
     PyObject *item;
-    PyObject *v_device;
     FILE *out_file;
 
     // Parse arguments (iterator, string)
@@ -49,7 +54,7 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
         return NULL;
     out_file = fopen(path, "wb");
     // Loop through items
-    while (item = PyIter_Next(iterator)) {
+    while ((item = PyIter_Next(iterator))) {
         // item support mapping protocol
         if (PyMapping_Check(item)) {
             written += process_item(item, out_file);
@@ -70,12 +75,12 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
 }
 
 int process_item(PyObject* item, FILE* out_file) {
-    PyObject* v_device;
-    PyObject* v_type;
-    PyObject* v_id;
-    PyObject* v_apps;
-    PyObject* v_lat;
-    PyObject* v_lon;
+    PyObject* v_device = NULL;
+    PyObject* v_type = NULL;
+    PyObject* v_id = NULL;
+    PyObject* v_apps = NULL;
+    PyObject* v_lat = NULL;
+    PyObject* v_lon = NULL;
     const char* device_id = NULL;
     const char* device_type = NULL;
     float* lat = NULL;
@@ -141,10 +146,10 @@ int pack_and_write(const char* type,
     dprint("\nID: %s\n", id);
     dprint("Type: %s\n", type);
     dprint("Apps count: %i\n", count);
-    dprint("Apps ids: ", 0);
+    dprintp("Apps ids: ");
     for (int i = 0; i < count; i++)
-        dprint("%i ", apps[i]);
-    dprint("\n", 0);
+        dprint("%li ", apps[i]);
+    dprintp("\n");
     if (lat) dprint("lat: %.4f\n", *lat);
     if (lon) dprint("lon: %.4f\n", *lon);
 
