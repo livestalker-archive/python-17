@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <zlib.h>
 #include "deviceapps.pb-c.h"
 
 #define MAGIC  0xFFFFFFFF
@@ -21,8 +22,8 @@ typedef struct pbheader_s {
 #define PBHEADER_INIT {MAGIC, 0, 0}
 
 // functions
-int process_item(PyObject*, FILE*);
-int pack_and_write(const char*, const char*, int, long*, const float*, const float*, FILE*);
+int process_item(PyObject*, gzFile);
+int pack_and_write(const char*, const char*, int, long*, const float*, const float*, gzFile);
 
 // fields
 char F_DEVICE[] = "device";
@@ -42,7 +43,7 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     PyObject* o;
     PyObject *iterator;
     PyObject *item;
-    FILE *out_file;
+    gzFile out_file;
 
     // Parse arguments (iterator, string)
     if (!PyArg_ParseTuple(args, "Os", &o, &path))
@@ -52,7 +53,7 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     iterator = PyObject_GetIter(o);
     if (iterator == NULL)
         return NULL;
-    out_file = fopen(path, "wb");
+    out_file = gzopen(path, "wb");
     // Loop through items
     while ((item = PyIter_Next(iterator))) {
         // item support mapping protocol
@@ -70,11 +71,11 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
 
     Py_DECREF(iterator);
 
-    fclose(out_file);
+    gzclose(out_file);
     return Py_BuildValue("i", written);
 }
 
-int process_item(PyObject* item, FILE* out_file) {
+int process_item(PyObject* item, gzFile out_file) {
     PyObject* v_device = NULL;
     PyObject* v_type = NULL;
     PyObject* v_id = NULL;
@@ -88,6 +89,7 @@ int process_item(PyObject* item, FILE* out_file) {
     int count = 0;
     long* apps = NULL;
     unsigned written = 0;
+    int i = 0;
     v_device = PyMapping_GetItemString(item, F_DEVICE);
     if (v_device != NULL) {
         v_type = PyMapping_GetItemString(v_device, F_TYPE);
@@ -99,7 +101,7 @@ int process_item(PyObject* item, FILE* out_file) {
     if (v_apps && PySequence_Check(v_apps)) {
         count = PySequence_Size(v_apps);
         apps = malloc(sizeof(long) * count);
-        for (int i = 0; i < count; i++) {
+        for (i = 0; i < count; i++) {
             PyObject *id_app = PyList_GET_ITEM(v_apps, i);
             apps[i] = PyInt_AsLong(id_app);
             Py_XDECREF(id_app);
@@ -136,18 +138,19 @@ int pack_and_write(const char* type,
                     long* apps,
                     const float* lat,
                     const float* lon,
-                    FILE* out_file) {
+                    gzFile out_file) {
     DeviceApps msg = DEVICE_APPS__INIT;
     DeviceApps__Device device = DEVICE_APPS__DEVICE__INIT;
     void *buf;
     unsigned len;
+    int i = 0;
 
     // Debug info
     dprint("\nID: %s\n", id);
     dprint("Type: %s\n", type);
     dprint("Apps count: %i\n", count);
     dprintp("Apps ids: ");
-    for (int i = 0; i < count; i++)
+    for (i = 0; i < count; i++)
         dprint("%li ", apps[i]);
     dprintp("\n");
     if (lat) dprint("lat: %.4f\n", *lat);
@@ -175,7 +178,7 @@ int pack_and_write(const char* type,
 
     msg.n_apps = count;
     msg.apps = malloc(sizeof(uint32_t) * msg.n_apps);
-    for (int i = 0; i < count; i++) {
+    for (i = 0; i < count; i++) {
         msg.apps[i] = apps[i];
     }
     len = device_apps__get_packed_size(&msg);
@@ -188,11 +191,11 @@ int pack_and_write(const char* type,
     header.magic = MAGIC;
     header.type = DEVICE_APPS_TYPE;
     header.length = len;
-    fwrite(&header, sizeof(pbheader_t), 1, out_file);
+    gzwrite(out_file, &header, sizeof(pbheader_t));
 
     // write message
     dprint("Writing %d serialized bytes\n",len);
-    fwrite(&buf, len, 1, out_file);
+    gzwrite(out_file, &buf, len);
 
     free(msg.apps);
     free(buf);

@@ -6,6 +6,7 @@ RUN mkdir -p /tmp/otus
 RUN yum install -y \
                 gcc \
 				make \
+				zlib-devel \
 				protobuf \
 				protobuf-c \
 				protobuf-c-compiler \

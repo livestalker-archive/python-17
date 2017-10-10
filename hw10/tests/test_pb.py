@@ -4,7 +4,7 @@ import unittest
 import pb
 MAGIC = 0xFFFFFFFF
 DEVICE_APPS_TYPE = 1
-TEST_FILE = "./test.pb.gz"
+TEST_FILE = "test.pb.gz"
 
 
 class TestPB(unittest.TestCase):
