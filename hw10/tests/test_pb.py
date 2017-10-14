@@ -16,13 +16,12 @@ class TestPB(unittest.TestCase):
     deviceapps = [
         {"device": {"type": "idfa", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7c"},
          "lat": 67.7835424444, "lon": -22.8044005471, "apps": [1, 2, 3, 4]},
-        #{"device": {"type": "gaid", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7d"}, "lat": 42, "lon": -42, "apps": [1, 2]},
-        #{"device": {"type": "gaid", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7d"}, "lat": 42, "lon": -42, "apps": []},
-        #{"device": {"type": "gaid", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7d"}, "apps": [1]},
+        {"device": {"type": "gaid", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7d"}, "lat": 42, "lon": -42, "apps": [1, 2]},
+        {"device": {"type": "gaid", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7d"}, "lat": 42, "lon": -42, "apps": []},
+        {"device": {"type": "gaid", "id": "e7e1a50c0ec2747ca56cd9e1558c0d7d"}, "apps": [1]},
     ]
 
     def tearDown(self):
-        pass
         os.remove(TEST_FILE)
 
     def test_write(self):
@@ -41,17 +40,16 @@ class TestPB(unittest.TestCase):
                 data = fd.read(data_len)
                 da = pypb2.DeviceApps()
                 da.ParseFromString(data)
-
-                da_orig = pypb2.DeviceApps()
-                da_orig.device.id = el['device']['id']
-                da_orig.device.type = el['device']['type']
-                da_orig.apps.extend(el['apps'])
-                if 'lat' in el:
-                    da_orig.lat = el['lat']
-                if 'lon' in el:
-                    da_orig.lon = el['lon']
-
-                #self.assertEquals(da, da_orig)
+                if da.HasField('device'):
+                    if da.device.HasField('type'):
+                        self.assertEqual(da.device.type, el['device']['type'])
+                    if da.device.HasField('id'):
+                        self.assertEqual(da.device.id, el['device']['id'])
+                self.assertEqual(da.apps, el['apps'])
+                if da.HasField('lat'):
+                    self.assertAlmostEqual(da.lat, el['lat'], places=5)
+                if da.HasField('lon'):
+                    self.assertAlmostEqual(da.lon, el['lon'], places=5)
 
     @unittest.skip("Optional problem")
     def test_read(self):
