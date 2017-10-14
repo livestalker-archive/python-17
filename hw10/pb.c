@@ -37,12 +37,12 @@ int process_item(PyObject*, gzFile);
 int pack_and_write(datapkg_t dp);
 
 // fields
-char F_DEVICE[] = "device";
-char F_TYPE[]   = "type";
-char F_ID[]     = "id";
-char F_APPS[]   = "apps";
-char F_LAT[]    = "lat";
-char F_LON[]    = "lon";
+char const * F_DEVICE = "device";
+char const * F_TYPE   = "type";
+char const * F_ID     = "id";
+char const * F_APPS   = "apps";
+char const * F_LAT    = "lat";
+char const * F_LON    = "lon";
 
 // Read iterator of Python dicts
 // Pack them to DeviceApps protobuf and write to file with appropriate header
