@@ -108,16 +108,20 @@ int process_item(PyObject* item, gzFile out_file) {
         }
     }
 
-    v_lat = PyMapping_GetItemString(item, F_LAT);
-    if (v_lat && PyNumber_Check(v_lat)) {
-        dp.lat = (float* )malloc(sizeof(float));
-        *dp.lat = PyFloat_AsDouble(v_lat);
+    if (PyMapping_HasKeyString(item, F_LON)) {
+        v_lat = PyMapping_GetItemString(item, F_LAT);
+        if (v_lat && PyNumber_Check(v_lat)) {
+            dp.lat = (float* )malloc(sizeof(float));
+            *dp.lat = PyFloat_AsDouble(v_lat);
+        }
     }
 
-    v_lon = PyMapping_GetItemString(item, F_LON);
-    if (v_lon && PyNumber_Check(v_lon)) {
-        dp.lon = (float* )malloc(sizeof(float));
-        *(dp.lon) = PyFloat_AsDouble(v_lon);
+    if (PyMapping_HasKeyString(item, F_LON)) {
+        v_lon = PyMapping_GetItemString(item, F_LON);
+        if (v_lon && PyNumber_Check(v_lon)) {
+            dp.lon = (float* )malloc(sizeof(float));
+            *(dp.lon) = PyFloat_AsDouble(v_lon);
+        }
     }
     written = pack_and_write(dp);
     if (dp.lat) free(dp.lat);
@@ -183,11 +187,11 @@ int pack_and_write(datapkg_t dp) {
 
     // write message
     dprint("Writing %d serialized bytes\n",len);
-    gzwrite(dp.out_file, &buf, len);
+    gzwrite(dp.out_file, buf, len);
 
     free(msg.apps);
     free(buf);
-    return len;
+    return sizeof(pbheader_t) + len;
 }
 
 // Unpack only messages with type == DEVICE_APPS_TYPE
