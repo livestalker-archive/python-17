@@ -87,12 +87,7 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
 }
 
 int process_item(PyObject* item, gzFile out_file) {
-    PyObject* v_device = NULL;
-    PyObject* v_type = NULL;
-    PyObject* v_id = NULL;
-    PyObject* v_apps = NULL;
-    PyObject* v_lat = NULL;
-    PyObject* v_lon = NULL;
+    PyObject *v_device, *v_type, *v_id, *v_apps, *v_lat, *v_lon;
     unsigned written = 0;
     int i = 0;
     datapkg_t dp = {NULL, NULL, 0, NULL, NULL, NULL, out_file};
@@ -110,7 +105,6 @@ int process_item(PyObject* item, gzFile out_file) {
         for (i = 0; i < dp.count; i++) {
             PyObject *id_app = PyList_GET_ITEM(v_apps, i);
             dp.apps[i] = PyInt_AsLong(id_app);
-            Py_XDECREF(id_app);
         }
     }
 
@@ -126,12 +120,6 @@ int process_item(PyObject* item, gzFile out_file) {
         *(dp.lon) = PyFloat_AsDouble(v_lon);
     }
     written = pack_and_write(dp);
-    Py_XDECREF(v_device);
-    Py_XDECREF(v_type);
-    Py_XDECREF(v_id);
-    Py_XDECREF(v_apps);
-    Py_XDECREF(v_lat);
-    Py_XDECREF(v_lon);
     if (dp.lat) free(dp.lat);
     if (dp.lon) free(dp.lon);
     if (dp.apps) free(dp.apps);
