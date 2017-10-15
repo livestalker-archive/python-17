@@ -8,30 +8,36 @@
 
 #define MAGIC  0xFFFFFFFF
 #define DEVICE_APPS_TYPE 1
-#define DEBUG 1
-#define dprintp(fmt) \
-            do { if (DEBUG) fprintf(stderr, fmt); } while (0)
-#define dprint(fmt, ...) \
-            do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 typedef struct pbheader_s {
     uint32_t magic;
     uint16_t type;
     uint16_t length;
 } pbheader_t;
+
+typedef struct datapkg_s {
+    char* type;
+    char* id;
+    int count;
+    long* apps;
+    float* lat;
+    float* lon;
+    gzFile out_file;
+} datapkg_t;
+
 #define PBHEADER_INIT {MAGIC, 0, 0}
 
 // functions
 int process_item(PyObject*, gzFile);
-int pack_and_write(const char*, const char*, int, long*, const float*, const float*, gzFile);
+int pack_and_write(datapkg_t dp);
 
 // fields
-char F_DEVICE[] = "device";
-char F_TYPE[]   = "type";
-char F_ID[]     = "id";
-char F_APPS[]   = "apps";
-char F_LAT[]    = "lat";
-char F_LON[]    = "lon";
+char const * F_DEVICE = "device";
+char const * F_TYPE   = "type";
+char const * F_ID     = "id";
+char const * F_APPS   = "apps";
+char const * F_LAT    = "lat";
+char const * F_LON    = "lon";
 
 // Read iterator of Python dicts
 // Pack them to DeviceApps protobuf and write to file with appropriate header
@@ -54,15 +60,24 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     if (iterator == NULL)
         return NULL;
     out_file = gzopen(path, "wb");
+    if (out_file == NULL){
+        PyErr_SetString(PyExc_IOError, "Cannot open a file");
+        Py_DECREF(iterator);
+	    return NULL;
+    }
     // Loop through items
     while ((item = PyIter_Next(iterator))) {
         // item support mapping protocol
         if (PyMapping_Check(item)) {
-            written += process_item(item, out_file);
+            int bytes_count = process_item(item, out_file);
+            if (bytes_count == -1) {
+                Py_DECREF(item);
+                break;
+            }
+            written += bytes_count;
         }
         // item not support item protocol
         else {
-            dprint("Item with index %i does not mapping object.", ix);
             PyErr_SetString(PyExc_ValueError, "The deviceapps type must be a dictionary");
         }
         Py_DECREF(item);
@@ -72,114 +87,102 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     Py_DECREF(iterator);
 
     gzclose(out_file);
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
     return Py_BuildValue("i", written);
 }
 
 int process_item(PyObject* item, gzFile out_file) {
-    PyObject* v_device = NULL;
-    PyObject* v_type = NULL;
-    PyObject* v_id = NULL;
-    PyObject* v_apps = NULL;
-    PyObject* v_lat = NULL;
-    PyObject* v_lon = NULL;
-    const char* device_id = NULL;
-    const char* device_type = NULL;
-    float* lat = NULL;
-    float* lon = NULL;
-    int count = 0;
-    long* apps = NULL;
+    PyObject *v_device, *v_type, *v_id, *v_apps, *v_lat, *v_lon;
     unsigned written = 0;
     int i = 0;
+    datapkg_t dp = {NULL, NULL, 0, NULL, NULL, NULL, out_file};
     v_device = PyMapping_GetItemString(item, F_DEVICE);
     if (v_device != NULL) {
         v_type = PyMapping_GetItemString(v_device, F_TYPE);
         v_id = PyMapping_GetItemString(v_device, F_ID);
-        device_type = PyString_AsString(v_type);
-        device_id = PyString_AsString(v_id);
+        dp.type = PyString_AsString(v_type);
+        dp.id = PyString_AsString(v_id);
     }
     v_apps = PyMapping_GetItemString(item, F_APPS);
     if (v_apps && PySequence_Check(v_apps)) {
-        count = PySequence_Size(v_apps);
-        apps = malloc(sizeof(long) * count);
-        for (i = 0; i < count; i++) {
+        dp.count = PySequence_Size(v_apps);
+        dp.apps = malloc(sizeof(long) * dp.count);
+        if (dp.apps == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Can not allocate memory.");
+            return -1;
+        }
+        for (i = 0; i < dp.count; i++) {
             PyObject *id_app = PyList_GET_ITEM(v_apps, i);
-            apps[i] = PyInt_AsLong(id_app);
-            Py_XDECREF(id_app);
+            dp.apps[i] = PyInt_AsLong(id_app);
         }
     }
 
-    v_lat = PyMapping_GetItemString(item, F_LAT);
-    if (v_lat && PyNumber_Check(v_lat)) {
-        lat = (float* )malloc(sizeof(float));
-        *lat = PyFloat_AsDouble(v_lat);
+    if (PyMapping_HasKeyString(item, F_LON)) {
+        v_lat = PyMapping_GetItemString(item, F_LAT);
+        if (v_lat && PyNumber_Check(v_lat)) {
+            dp.lat = (float* )malloc(sizeof(float));
+            if (dp.lat == NULL) {
+                PyErr_SetString(PyExc_MemoryError, "Can not allocate memory.");
+                if (dp.apps) free(dp.apps);
+                return -1;
+            }
+            *dp.lat = PyFloat_AsDouble(v_lat);
+        }
     }
 
-    v_lon = PyMapping_GetItemString(item, F_LON);
-    if (v_lon && PyNumber_Check(v_lon)) {
-        lon = (float* )malloc(sizeof(float));
-        *lon = PyFloat_AsDouble(v_lon);
+    if (PyMapping_HasKeyString(item, F_LON)) {
+        v_lon = PyMapping_GetItemString(item, F_LON);
+        if (v_lon && PyNumber_Check(v_lon)) {
+            dp.lon = (float* )malloc(sizeof(float));
+            *(dp.lon) = PyFloat_AsDouble(v_lon);
+            if (dp.lon == NULL) {
+                PyErr_SetString(PyExc_MemoryError, "Can not allocate memory.");
+                if (dp.apps) free(dp.apps);
+                if (dp.lat) free(dp.lat);
+                return -1;
+            }
+        }
     }
-    written = pack_and_write(device_type, device_id, count, apps, lat, lon, out_file);
-    Py_XDECREF(v_device);
-    Py_XDECREF(v_type);
-    Py_XDECREF(v_id);
-    Py_XDECREF(v_apps);
-    Py_XDECREF(v_lat);
-    Py_XDECREF(v_lon);
-    if (lat) free(lat);
-    if (lon) free(lon);
-    if (apps) free(apps);
+    written = pack_and_write(dp);
+    if (dp.lat) free(dp.lat);
+    if (dp.lon) free(dp.lon);
+    if (dp.apps) free(dp.apps);
     return written;
 }
 
-int pack_and_write(const char* type,
-                    const char* id,
-                    int count,
-                    long* apps,
-                    const float* lat,
-                    const float* lon,
-                    gzFile out_file) {
+int pack_and_write(datapkg_t dp) {
     DeviceApps msg = DEVICE_APPS__INIT;
     DeviceApps__Device device = DEVICE_APPS__DEVICE__INIT;
     void *buf;
     unsigned len;
     int i = 0;
 
-    // Debug info
-    dprint("\nID: %s\n", id);
-    dprint("Type: %s\n", type);
-    dprint("Apps count: %i\n", count);
-    dprintp("Apps ids: ");
-    for (i = 0; i < count; i++)
-        dprint("%li ", apps[i]);
-    dprintp("\n");
-    if (lat) dprint("lat: %.4f\n", *lat);
-    if (lon) dprint("lon: %.4f\n", *lon);
-
-    if (type && id) {
+    if (dp.type && dp.id) {
         device.has_id = 1;
-        device.id.data = (uint8_t*)id;
-        device.id.len = strlen(id);
+        device.id.data = (uint8_t*)dp.id;
+        device.id.len = strlen(dp.id);
         device.has_type = 1;
-        device.type.data = (uint8_t*)type;
-        device.type.len = strlen(type);
+        device.type.data = (uint8_t*)dp.type;
+        device.type.len = strlen(dp.type);
         msg.device = &device;
     }
 
-    if (lat) {
+    if (dp.lat) {
         msg.has_lat = 1;
-        msg.lat = *lat;
+        msg.lat = *(dp.lat);
     }
 
-    if (lon) {
+    if (dp.lon) {
        msg.has_lon = 1;
-       msg.lon = *lon;
+       msg.lon = *(dp.lon);
     }
 
-    msg.n_apps = count;
+    msg.n_apps = dp.count;
     msg.apps = malloc(sizeof(uint32_t) * msg.n_apps);
-    for (i = 0; i < count; i++) {
-        msg.apps[i] = apps[i];
+    for (i = 0; i < dp.count; i++) {
+        msg.apps[i] = dp.apps[i];
     }
     len = device_apps__get_packed_size(&msg);
 
@@ -191,15 +194,12 @@ int pack_and_write(const char* type,
     header.magic = MAGIC;
     header.type = DEVICE_APPS_TYPE;
     header.length = len;
-    gzwrite(out_file, &header, sizeof(pbheader_t));
-
-    // write message
-    dprint("Writing %d serialized bytes\n",len);
-    gzwrite(out_file, &buf, len);
+    gzwrite(dp.out_file, &header, sizeof(pbheader_t));
+    gzwrite(dp.out_file, buf, len);
 
     free(msg.apps);
     free(buf);
-    return len;
+    return sizeof(pbheader_t) + len;
 }
 
 // Unpack only messages with type == DEVICE_APPS_TYPE

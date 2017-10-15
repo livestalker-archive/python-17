@@ -14,3 +14,8 @@ test: clean
 clean:
 	-rm -fr ./build
 	-rm -fr ./pb.egg-info
+
+.PHONY: gen
+gen:
+	protoc --python_out=. deviceapps.proto
+	protoc-c --c_out=. deviceapps.proto
