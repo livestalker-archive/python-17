@@ -22,6 +22,7 @@ RUN yum clean all
 
 COPY deviceapps.proto .
 RUN protoc-c --c_out=. deviceapps.proto
+RUN protoc --python_out=. deviceapps.proto
 COPY tests ./tests
 COPY setup.py .
 COPY Makefile .
