@@ -74,7 +74,12 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     while ((item = PyIter_Next(iterator))) {
         // item support mapping protocol
         if (PyMapping_Check(item)) {
-            written += process_item(item, out_file);
+            int bytes_count = process_item(item, out_file);
+            if (bytes_count == -1) {
+                Py_DECREF(item);
+                break;
+            }
+            written += bytes_count;
         }
         // item not support item protocol
         else {
@@ -110,6 +115,10 @@ int process_item(PyObject* item, gzFile out_file) {
     if (v_apps && PySequence_Check(v_apps)) {
         dp.count = PySequence_Size(v_apps);
         dp.apps = malloc(sizeof(long) * dp.count);
+        if (dp.apps == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Can not allocate memory.");
+            return -1;
+        }
         for (i = 0; i < dp.count; i++) {
             PyObject *id_app = PyList_GET_ITEM(v_apps, i);
             dp.apps[i] = PyInt_AsLong(id_app);
@@ -120,6 +129,11 @@ int process_item(PyObject* item, gzFile out_file) {
         v_lat = PyMapping_GetItemString(item, F_LAT);
         if (v_lat && PyNumber_Check(v_lat)) {
             dp.lat = (float* )malloc(sizeof(float));
+            if (dp.lat == NULL) {
+                PyErr_SetString(PyExc_MemoryError, "Can not allocate memory.");
+                if (dp.apps) free(dp.apps);
+                return -1;
+            }
             *dp.lat = PyFloat_AsDouble(v_lat);
         }
     }
@@ -129,6 +143,12 @@ int process_item(PyObject* item, gzFile out_file) {
         if (v_lon && PyNumber_Check(v_lon)) {
             dp.lon = (float* )malloc(sizeof(float));
             *(dp.lon) = PyFloat_AsDouble(v_lon);
+            if (dp.lon == NULL) {
+                PyErr_SetString(PyExc_MemoryError, "Can not allocate memory.");
+                if (dp.apps) free(dp.apps);
+                if (dp.lat) free(dp.lat);
+                return -1;
+            }
         }
     }
     written = pack_and_write(dp);
