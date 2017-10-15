@@ -65,6 +65,11 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     if (iterator == NULL)
         return NULL;
     out_file = gzopen(path, "wb");
+    if (out_file == NULL){
+        PyErr_SetString(PyExc_IOError, "Cannot open a file");
+        Py_DECREF(iterator);
+	    return NULL;
+    }
     // Loop through items
     while ((item = PyIter_Next(iterator))) {
         // item support mapping protocol
@@ -83,6 +88,9 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
     Py_DECREF(iterator);
 
     gzclose(out_file);
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
     return Py_BuildValue("i", written);
 }
 
