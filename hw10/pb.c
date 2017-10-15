@@ -8,11 +8,6 @@
 
 #define MAGIC  0xFFFFFFFF
 #define DEVICE_APPS_TYPE 1
-#define DEBUG 1
-#define dprintp(fmt) \
-            do { if (DEBUG) fprintf(stderr, fmt); } while (0)
-#define dprint(fmt, ...) \
-            do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 typedef struct pbheader_s {
     uint32_t magic;
@@ -83,7 +78,6 @@ static PyObject* py_deviceapps_xwrite_pb(PyObject* self, PyObject* args) {
         }
         // item not support item protocol
         else {
-            dprint("Item with index %i does not mapping object.", ix);
             PyErr_SetString(PyExc_ValueError, "The deviceapps type must be a dictionary");
         }
         Py_DECREF(item);
@@ -165,17 +159,6 @@ int pack_and_write(datapkg_t dp) {
     unsigned len;
     int i = 0;
 
-    // Debug info
-    dprint("\nID: %s\n", dp.id);
-    dprint("Type: %s\n", dp.type);
-    dprint("Apps count: %i\n", dp.count);
-    dprintp("Apps ids: ");
-    for (i = 0; i < dp.count; i++)
-        dprint("%li ", dp.apps[i]);
-    dprintp("\n");
-    if (dp.lat) dprint("lat: %.4f\n", *(dp.lat));
-    if (dp.lon) dprint("lon: %.4f\n", *(dp.lon));
-
     if (dp.type && dp.id) {
         device.has_id = 1;
         device.id.data = (uint8_t*)dp.id;
@@ -212,9 +195,6 @@ int pack_and_write(datapkg_t dp) {
     header.type = DEVICE_APPS_TYPE;
     header.length = len;
     gzwrite(dp.out_file, &header, sizeof(pbheader_t));
-
-    // write message
-    dprint("Writing %d serialized bytes\n",len);
     gzwrite(dp.out_file, buf, len);
 
     free(msg.apps);
