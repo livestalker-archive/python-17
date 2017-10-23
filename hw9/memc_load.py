@@ -24,10 +24,11 @@ AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "
 
 
 class Worker(threading.Thread):
-    def __init__(self, q, m, dry=False):
+    def __init__(self, q, rq, m, dry=False):
         threading.Thread.__init__(self)
         self.daemon = True
         self.q = q
+        self.rq = rq
         self.m = m
         self.dry = dry
 
@@ -39,6 +40,7 @@ class Worker(threading.Thread):
                 line = self.q.get(timeout=0.1)
                 if line == SENTINEL:
                     logging.info('Stop thread %s.' % self.name)
+                    self.rq.put((processed, errors))
                     break
                 else:
                     appsinstalled = parse_appsinstalled(line)
@@ -107,12 +109,13 @@ def file_handler(options):
     fn, device_memc, options = options
     thread_pool = {}
     q_pool = {}
+    results = Queue.Queue()
 
     # start threads
     for d in device_memc:
         m = memcache.Client([device_memc[d]])
         q = Queue.Queue()
-        worker = Worker(q, m)
+        worker = Worker(q, results, m)
         thread_pool[d] = worker
         q_pool[d] = q
         worker.start()
