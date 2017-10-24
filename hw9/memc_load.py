@@ -33,13 +33,13 @@ class Worker(threading.Thread):
         self.dry = dry
 
     def run(self):
-        logging.info('Start thread %s.' % self.name)
+        logging.info('%s: Start thread %s.' % (os.getpid(), self.name))
         processed = errors = 0
         while True:
             try:
                 line = self.q.get(timeout=0.1)
                 if line == SENTINEL:
-                    logging.info('Stop thread %s.' % self.name)
+                    logging.info('%s: Stop thread %s.' % (os.getpid(), self.name))
                     self.rq.put((processed, errors))
                     break
                 else:
@@ -115,7 +115,7 @@ def file_handler(options):
     for d in device_memc:
         m = memcache.Client([device_memc[d]])
         q = Queue.Queue()
-        worker = Worker(q, results, m)
+        worker = Worker(q, results, m, options.dry)
         thread_pool[d] = worker
         q_pool[d] = q
         worker.start()
@@ -141,8 +141,13 @@ def file_handler(options):
         q.put(SENTINEL)
     for t in thread_pool.values():
         t.join()
+    while not results.empty():
+        worker_processed, worker_errors = results.get(timeout=0.1)
+        processed += worker_processed
+        errors += worker_errors
     if not processed:
         fd.close()
+        return fn
 
     err_rate = float(errors) / processed
     if err_rate < NORMAL_ERR_RATE:
