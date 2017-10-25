@@ -80,3 +80,48 @@ real    13m1.608s
 user    24m9.276s
 sys     5m18.528s
 ```
+
+N процессов с тредами (по треду на каждый memcache)
+
+```bash
+(.hw9) aleksio@nginx:~/hw9$ time python memc_load.py --pattern './data/appsinstalled/*.tsv.gz'
+[2017.10.24 15:31:49] I Memc loader started with options: {'dry': False, 'log': None, 'pattern': './data/appsinstalled/*.tsv.gz', 'workers': 4, 'idfa': '127.0.0.1:33013', 'dvid': '127.0.0.1:33016', 'test': False, 'adid': '127.0.0.1:33015', 'gaid': '127.0.0.1:33014'}
+[2017.10.24 15:31:49] I Worker count: 4.
+[2017.10.24 15:31:49] I 2514: Start thread Thread-1.
+[2017.10.24 15:31:49] I 2515: Start thread Thread-1.
+[2017.10.24 15:31:49] I 2515: Start thread Thread-2.
+[2017.10.24 15:31:49] I 2514: Start thread Thread-2.
+[2017.10.24 15:31:49] I 2514: Start thread Thread-3.
+[2017.10.24 15:31:49] I 2516: Start thread Thread-1.
+[2017.10.24 15:31:49] I 2515: Start thread Thread-3.
+[2017.10.24 15:31:49] I 2514: Start thread Thread-4.
+[2017.10.24 15:31:49] I 2515: Start thread Thread-4.
+[2017.10.24 15:31:49] I Processing ./data/appsinstalled/20170929000100.tsv.gz.
+[2017.10.24 15:31:49] I Processing ./data/appsinstalled/20170929000000.tsv.gz.
+[2017.10.24 15:31:49] I 2516: Start thread Thread-2.
+[2017.10.24 15:31:49] I 2516: Start thread Thread-3.
+[2017.10.24 15:31:49] I Processing ./data/appsinstalled/20170929000200.tsv.gz.
+[2017.10.24 15:31:49] I 2516: Start thread Thread-4.
+[2017.10.24 15:44:49] I 2516: Stop thread Thread-3.
+[2017.10.24 15:44:49] I 2516: Stop thread Thread-1.
+[2017.10.24 15:44:49] I 2516: Stop thread Thread-2.
+[2017.10.24 15:44:49] I 2516: Stop thread Thread-4.
+[2017.10.24 15:44:49] I Acceptable error rate (0.0). Successfull load
+[2017.10.24 15:44:56] I 2515: Stop thread Thread-2.
+[2017.10.24 15:44:57] I 2515: Stop thread Thread-4.
+[2017.10.24 15:44:57] I 2515: Stop thread Thread-3.
+[2017.10.24 15:44:58] I 2515: Stop thread Thread-1.
+[2017.10.24 15:44:58] I Acceptable error rate (0.0). Successfull load
+[2017.10.24 15:44:58] I Rename ./data/appsinstalled/20170929000000.tsv.gz.
+[2017.10.24 15:44:59] I 2514: Stop thread Thread-1.
+[2017.10.24 15:45:00] I 2514: Stop thread Thread-3.
+[2017.10.24 15:45:00] I 2514: Stop thread Thread-2.
+[2017.10.24 15:45:00] I 2514: Stop thread Thread-4.
+[2017.10.24 15:45:00] I Acceptable error rate (0.0). Successfull load
+[2017.10.24 15:45:00] I Rename ./data/appsinstalled/20170929000100.tsv.gz.
+[2017.10.24 15:45:00] I Rename ./data/appsinstalled/20170929000200.tsv.gz.
+
+real    13m11.475s
+user    31m22.360s
+sys     10m21.548s
+```

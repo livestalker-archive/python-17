@@ -15,10 +15,45 @@ import appsinstalled_pb2
 # pip install python-memcached
 import memcache
 import multiprocessing as mp
+import threading
 import Queue
 
+SENTINEL = object()
 NORMAL_ERR_RATE = 0.01
 AppsInstalled = collections.namedtuple("AppsInstalled", ["dev_type", "dev_id", "lat", "lon", "apps"])
+
+
+class Worker(threading.Thread):
+    def __init__(self, q, rq, m, dry=False):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.q = q
+        self.rq = rq
+        self.m = m
+        self.dry = dry
+
+    def run(self):
+        logging.info('%s: Start thread %s.' % (os.getpid(), self.name))
+        processed = errors = 0
+        while True:
+            try:
+                line = self.q.get(timeout=0.1)
+                if line == SENTINEL:
+                    logging.info('%s: Stop thread %s.' % (os.getpid(), self.name))
+                    self.rq.put((processed, errors))
+                    break
+                else:
+                    appsinstalled = parse_appsinstalled(line)
+                    if not appsinstalled:
+                        errors += 1
+                        continue
+                    ok = insert_appsinstalled(self.m, appsinstalled, self.dry)
+                    if ok:
+                        processed += 1
+                    else:
+                        errors += 1
+            except Queue.Empty:
+                continue
 
 
 def dot_rename(path):
@@ -72,9 +107,19 @@ def parse_appsinstalled(line):
 
 def file_handler(options):
     fn, device_memc, options = options
-    memc_pool = {}
+    thread_pool = {}
+    q_pool = {}
+    results = Queue.Queue()
+
+    # start threads
     for d in device_memc:
-        memc_pool[d] = memcache.Client([device_memc[d]])
+        m = memcache.Client([device_memc[d]])
+        q = Queue.Queue()
+        worker = Worker(q, results, m, options.dry)
+        thread_pool[d] = worker
+        q_pool[d] = q
+        worker.start()
+
     logging.info('Processing %s.' % fn)
     processed = errors = 0
     with gzip.open(fn) as fd:
@@ -82,22 +127,27 @@ def file_handler(options):
             line = line.strip()
             if not line:
                 continue
-            appsinstalled = parse_appsinstalled(line)
-            if not appsinstalled:
-                errors += 1
+            try:
+                device_type = line.split()[0]
+                if device_type not in device_memc.keys():
+                    errors += 1
+                    logging.error("Unknown device type: %s" % device_type)
+                    continue
+                q_pool[device_type].put(line)
+            except IndexError:
                 continue
-            memc = memc_pool.get(appsinstalled.dev_type)
-            if not memc:
-                errors += 1
-                logging.error("Unknow device type: %s" % appsinstalled.dev_type)
-                continue
-            ok = insert_appsinstalled(memc, appsinstalled, options.dry)
-            if ok:
-                processed += 1
-            else:
-                errors += 1
+    # stop threads
+    for q in q_pool.values():
+        q.put(SENTINEL)
+    for t in thread_pool.values():
+        t.join()
+    while not results.empty():
+        worker_processed, worker_errors = results.get(timeout=0.1)
+        processed += worker_processed
+        errors += worker_errors
     if not processed:
         fd.close()
+        return fn
 
     err_rate = float(errors) / processed
     if err_rate < NORMAL_ERR_RATE:
@@ -106,34 +156,6 @@ def file_handler(options):
         logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
     fd.close()
     return fn
-
-
-def res_handler(res_q):
-    logging.info('Start results worker')
-    current_seq = 0
-    while True:
-        try:
-            res = res_q.get(True, 10)
-            if res == 'STOP':
-                if res_q.qsize() == 0:
-                    break
-                else:
-                    res_q.put('STOP')
-            seq, fn, processed, errors = res
-            if current_seq == seq:
-                if processed:
-                    err_rate = float(errors) / processed
-                    if err_rate < NORMAL_ERR_RATE:
-                        logging.info("Acceptable error rate (%s). Successfull load" % err_rate)
-                    else:
-                        logging.error("High error rate (%s > %s). Failed load" % (err_rate, NORMAL_ERR_RATE))
-                dot_rename(fn)
-                logging.info('Rename %s (seq: %s)' % (fn, seq))
-                current_seq += 1
-            else:
-                res_q.put(res)
-        except Queue.Empty:
-            continue
 
 
 def main(options):
@@ -150,6 +172,7 @@ def main(options):
     for fn in proc_pool.imap(file_handler, proc_args):
         dot_rename(fn)
         logging.info('Rename %s.' % fn)
+
 
 def prototest():
     sample = "idfa\t1rfw452y52g2gq4g\t55.55\t42.42\t1423,43,567,3,7,23\ngaid\t7rfw452y52g2gq4g\t55.55\t42.42\t7423,424"
